@@ -87,7 +87,7 @@
   }
 
   .btn-primary {
-    @apply btn bg-cf-red hover:bg-cf-crimson text-white focus:ring-cf-cyan shadow-glow-red/40;
+    @apply btn bg-cf-red hover:bg-cf-crimson text-white focus:ring-cf-cyan;
   }
 
   .btn-secondary {
