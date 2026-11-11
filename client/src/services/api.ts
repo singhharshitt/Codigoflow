@@ -100,8 +100,4 @@ export const aiService = aiApi;
 export const githubService = githubApi;
 export const historyService = jobsApi;
 export const integrationService = healthApi;
-export const workflowService = {
-  list: () => apiRequest('/workflows'),
-  save: (workflow: unknown) => apiRequest('/workflows', { method: 'POST', data: workflow }),
-  get: (id: string) => apiRequest(`/workflows/${id}`),
-};
+export { workflowApi as workflowService, devopsApi } from './devopsApi';

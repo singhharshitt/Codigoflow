@@ -35,6 +35,24 @@ const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 );
 const HelpPage = lazy(() => import('./pages/HelpPage').then((m) => ({ default: m.HelpPage })));
+const DevOpsOverviewPage = lazy(() =>
+  import('./pages/devops/DevOpsOverviewPage').then((m) => ({ default: m.DevOpsOverviewPage })),
+);
+const TerraformPage = lazy(() =>
+  import('./pages/devops/TerraformPage').then((m) => ({ default: m.TerraformPage })),
+);
+const AnsiblePage = lazy(() =>
+  import('./pages/devops/AnsiblePage').then((m) => ({ default: m.AnsiblePage })),
+);
+const PuppetPage = lazy(() =>
+  import('./pages/devops/PuppetPage').then((m) => ({ default: m.PuppetPage })),
+);
+const NagiosPage = lazy(() =>
+  import('./pages/devops/NagiosPage').then((m) => ({ default: m.NagiosPage })),
+);
+const LabEnvironmentPage = lazy(() =>
+  import('./pages/devops/LabEnvironmentPage').then((m) => ({ default: m.LabEnvironmentPage })),
+);
 
 function PageFallback() {
   return (
@@ -136,6 +154,54 @@ export default function App() {
             element={
               <Suspense fallback={<PageFallback />}>
                 <HelpPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="devops"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <DevOpsOverviewPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="devops/terraform"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <TerraformPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="devops/ansible"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <AnsiblePage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="devops/puppet"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <PuppetPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="devops/nagios"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <NagiosPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="devops/lab"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <LabEnvironmentPage />
               </Suspense>
             }
           />

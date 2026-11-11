@@ -5,7 +5,7 @@ import type { Edge, Node } from '@xyflow/react';
 export type WorkflowNodeData = {
   label: string;
   kind: string;
-  config?: Record<string, string>;
+  config?: Record<string, unknown>;
   status?: 'idle' | 'running' | 'succeeded' | 'failed' | 'planned';
 };
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -12,28 +12,38 @@ import {
   BackgroundVariant,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Plus, Save, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Save, Trash2, Play } from 'lucide-react';
 import { toast } from 'sonner';
 import { WorkflowNode } from '../features/workflows/WorkflowNode';
 import { useWorkflowStore, type WorkflowNodeData } from '../stores/workflowStore';
-import { workflowService } from '../services/api';
+import { workflowApi } from '../services/devopsApi';
 import { PageHeader, Button, Input, Alert, Badge } from '../components/ui';
 import { PageBackground } from '../components/shared';
 
 const LIBRARY: { kind: string; label: string; planned?: boolean }[] = [
   { kind: 'start', label: 'Start' },
-  { kind: 'git-validation', label: 'Git Validation' },
-  { kind: 'run-tests', label: 'Run Tests' },
-  { kind: 'docker-build', label: 'Docker Build' },
-  { kind: 'docker-health', label: 'Docker Health Check' },
-  { kind: 'ai-analysis', label: 'AI Analysis' },
-  { kind: 'commit', label: 'Commit' },
-  { kind: 'push', label: 'Push' },
   { kind: 'end', label: 'End' },
-  { kind: 'future-terraform', label: 'Terraform Provisioning', planned: true },
-  { kind: 'future-ansible', label: 'Ansible Deployment', planned: true },
-  { kind: 'future-puppet', label: 'Puppet Configuration', planned: true },
-  { kind: 'future-nagios', label: 'Nagios Monitoring', planned: true },
+  { kind: 'terraform.init', label: 'Terraform Init' },
+  { kind: 'terraform.fmt', label: 'Terraform Fmt' },
+  { kind: 'terraform.validate', label: 'Terraform Validate' },
+  { kind: 'terraform.plan', label: 'Terraform Plan' },
+  { kind: 'terraform.apply', label: 'Terraform Apply' },
+  { kind: 'ansible.inventory.validate', label: 'Ansible Inventory Validate' },
+  { kind: 'ansible.ping', label: 'Ansible Ping' },
+  { kind: 'ansible.facts', label: 'Ansible Facts' },
+  { kind: 'ansible.playbook.validate', label: 'Ansible Playbook Validate' },
+  { kind: 'ansible.playbook.check', label: 'Ansible Playbook Check' },
+  { kind: 'ansible.playbook.run', label: 'Ansible Playbook Run' },
+  { kind: 'puppet.status', label: 'Puppet Status' },
+  { kind: 'puppet.manifest.validate', label: 'Puppet Manifest Validate' },
+  { kind: 'puppet.agent.noop', label: 'Puppet Agent No-op' },
+  { kind: 'puppet.agent.run', label: 'Puppet Agent Run' },
+  { kind: 'puppet.apply', label: 'Puppet Apply' },
+  { kind: 'nagios.status', label: 'Nagios Status' },
+  { kind: 'nagios.check.host', label: 'Nagios Check Host' },
+  { kind: 'nagios.check.service', label: 'Nagios Check Service' },
+  { kind: 'nagios.verify.application', label: 'Nagios Verify App' },
+  { kind: 'nagios.schedule.downtime', label: 'Nagios Downtime' },
 ];
 
 const nodeTypes = { cfNode: WorkflowNode };
@@ -113,33 +123,53 @@ export function WorkflowBuilderPage() {
     selectNode(null);
   }
 
+  const [workflowId, setWorkflowId] = useState<string | null>(null);
+  const [runOutput, setRunOutput] = useState('');
+
   async function handleSave() {
     persistNodes(nodes);
     persistEdges(edges);
-    const res = await workflowService.save({ name, nodes, edges });
+    const res = await workflowApi.save({ name, nodes, edges });
     if (!res.success) {
       toast.message('Saved locally', {
-        description:
-          res.error?.message ??
-          'Workflow backend is not available yet. Canvas state is stored in this browser.',
+        description: res.error?.message ?? 'Workflow backend is not available.',
       });
       return;
     }
+    const id = (res.data as { id?: string } | undefined)?.id;
+    if (id) setWorkflowId(id);
     toast.success('Workflow saved');
   }
 
-  function validateGraph() {
-    const orphan = nodes.filter(
-      (n) =>
-        n.id !== 'start' &&
-        n.id !== 'end' &&
-        !edges.some((e) => e.source === n.id || e.target === n.id),
-    );
-    if (orphan.length) {
-      toast.warning(`${orphan.length} unconnected node(s)`);
-    } else {
-      toast.success('All nodes are connected');
+  async function validateGraph() {
+    persistNodes(nodes);
+    persistEdges(edges);
+    if (!workflowId) {
+      toast.warning('Save the workflow before server validation');
+      return;
     }
+    const res = await workflowApi.validate(workflowId);
+    if (!res.success) {
+      toast.error(res.error?.message ?? 'Validation failed');
+      return;
+    }
+    const data = res.data as { valid?: boolean; errors?: string[] };
+    if (data.valid) toast.success('Workflow is executable');
+    else toast.error((data.errors ?? ['invalid']).join('; '));
+  }
+
+  async function handleRun() {
+    if (!workflowId) {
+      toast.warning('Save the workflow before running');
+      return;
+    }
+    const res = await workflowApi.run(workflowId);
+    setRunOutput(JSON.stringify(res.data ?? res.error, null, 2));
+    if (!res.success) {
+      toast.error(res.error?.message ?? 'Workflow run failed');
+      return;
+    }
+    toast.success('Workflow run finished');
   }
 
   return (
@@ -147,11 +177,14 @@ export function WorkflowBuilderPage() {
       <PageBackground showWeb={false} />
       <PageHeader
         title="Visual Workflow Builder"
-        description="Compose Git → test → Docker → AI pipelines. Future infra nodes are marked planned and are not executable."
+        description="Compose Terraform → Ansible → Puppet → Nagios pipelines with approval-gated executors."
         action={
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={validateGraph}>
+            <Button variant="secondary" onClick={() => void validateGraph()}>
               Validate
+            </Button>
+            <Button variant="cyan" onClick={() => void handleRun()}>
+              <Play className="w-4 h-4" /> Run
             </Button>
             <Button variant="secondary" onClick={() => { reset(); setNodes(useWorkflowStore.getState().nodes); setEdges([]); }}>
               Reset
@@ -164,8 +197,8 @@ export function WorkflowBuilderPage() {
       />
 
       <Alert variant="info" className="relative z-10">
-        Execution is disabled until matching backend job runners exist. Saving persists the canvas locally;
-        server sync is attempted when `/api/workflows` is available.
+        DevOps nodes execute through the backend job engine. Destructive steps require approve: true in node config.
+        {workflowId ? ` Saved id: ${workflowId}` : ' Save before validate/run.'}
       </Alert>
 
       <div className="relative z-10 grid grid-cols-1 xl:grid-cols-[220px_1fr_260px] gap-3 min-h-[640px]">
@@ -244,16 +277,32 @@ export function WorkflowBuilderPage() {
               <div className="text-xs text-cf-muted">
                 Kind: <span className="font-mono text-cf-cyan">{selected.data.kind}</span>
               </div>
-              {String(selected.data.kind).startsWith('future') && (
-                <div className="flex gap-2 text-xs text-cf-warning">
-                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                  Planned integration — not executable in this release.
-                </div>
-              )}
+              <Input
+                label="Config JSON"
+                value={JSON.stringify(selected.data.config ?? {})}
+                onChange={(e) => {
+                  try {
+                    const config = JSON.parse(e.target.value) as Record<string, unknown>;
+                    updateNodeData(selected.id, { config });
+                    setNodes((ns) =>
+                      ns.map((n) =>
+                        n.id === selected.id ? { ...n, data: { ...n.data, config } } : n,
+                      ),
+                    );
+                  } catch {
+                    /* keep typing until JSON is valid */
+                  }
+                }}
+              />
               <Button variant="danger" onClick={deleteSelected}>
                 <Trash2 className="w-4 h-4" /> Delete node
               </Button>
             </>
+          )}
+          {runOutput && (
+            <pre className="text-[10px] font-mono text-cf-faint whitespace-pre-wrap max-h-48 overflow-auto">
+              {runOutput}
+            </pre>
           )}
         </aside>
       </div>

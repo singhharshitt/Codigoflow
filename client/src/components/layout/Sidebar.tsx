@@ -13,6 +13,12 @@ import {
   ChevronRight,
   Plug,
   HelpCircle,
+  CloudCog,
+  Cloud,
+  Server,
+  Shield,
+  Activity,
+  FlaskConical,
 } from 'lucide-react';
 import { useAppStore } from '../../stores/appStore';
 import { useRepoStore } from '../../stores/repoStore';
@@ -29,6 +35,15 @@ const MAIN_NAV = [
   { to: '/contributions', label: 'Contribution Explorer', icon: BarChart3 },
   { to: '/workflow', label: 'Workflow Builder', icon: Workflow },
   { to: '/history', label: 'Execution History', icon: Clock },
+];
+
+const DEVOPS_NAV = [
+  { to: '/devops', label: 'Overview', icon: CloudCog },
+  { to: '/devops/terraform', label: 'Terraform', icon: Cloud },
+  { to: '/devops/ansible', label: 'Ansible', icon: Server },
+  { to: '/devops/puppet', label: 'Puppet', icon: Shield },
+  { to: '/devops/nagios', label: 'Nagios', icon: Activity },
+  { to: '/devops/lab', label: 'Lab Environment', icon: FlaskConical },
 ];
 
 const BOTTOM_NAV = [
@@ -97,6 +112,30 @@ export function Sidebar() {
         {MAIN_NAV.map(({ to, label, icon: Icon }) => {
           const isActive =
             to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              className={clsx(
+                isActive ? 'nav-link-active' : 'nav-link',
+                sidebarCollapsed && 'justify-center px-2',
+              )}
+              title={sidebarCollapsed ? label : undefined}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              {!sidebarCollapsed && <span>{label}</span>}
+            </NavLink>
+          );
+        })}
+
+        {!sidebarCollapsed && (
+          <div className="section-title px-1 pt-4">DevOps Control Center</div>
+        )}
+        {DEVOPS_NAV.map(({ to, label, icon: Icon }) => {
+          const isActive =
+            to === '/devops'
+              ? location.pathname === '/devops'
+              : location.pathname.startsWith(to);
           return (
             <NavLink
               key={to}
