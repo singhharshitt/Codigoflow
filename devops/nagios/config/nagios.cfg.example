@@ -1,0 +1,11 @@
+# Example Nagios Core config fragment for CódigoFlow lab.
+# Copy into your Nagios etc directory and adjust paths.
+
+cfg_file=/usr/local/nagios/etc/objects/codigoflow/hosts.cfg
+cfg_file=/usr/local/nagios/etc/objects/codigoflow/services.cfg
+cfg_file=/usr/local/nagios/etc/objects/codigoflow/commands.cfg
+cfg_file=/usr/local/nagios/etc/objects/codigoflow/contacts.cfg
+
+check_external_commands=1
+command_file=/usr/local/nagios/var/rw/nagios.cmd
+status_file=/usr/local/nagios/var/status.dat

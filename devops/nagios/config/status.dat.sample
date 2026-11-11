@@ -1,0 +1,33 @@
+define host {
+  host_name codigoflow-app
+  alias CodigoFlow App
+  address 127.0.0.1
+  current_state 0
+  state_type 1
+  plugin_output OK - Host alive
+  last_check 1700000000
+  problem_has_been_acknowledged 0
+  scheduled_downtime_depth 0
+}
+
+define service {
+  host_name codigoflow-app
+  service_description HTTP
+  current_state 0
+  state_type 1
+  plugin_output HTTP OK - 200 - 12ms
+  last_check 1700000001
+  problem_has_been_acknowledged 0
+  scheduled_downtime_depth 0
+}
+
+define service {
+  host_name codigoflow-app
+  service_description APP
+  current_state 0
+  state_type 1
+  plugin_output OK - codigoflow app running
+  last_check 1700000002
+  problem_has_been_acknowledged 0
+  scheduled_downtime_depth 0
+}

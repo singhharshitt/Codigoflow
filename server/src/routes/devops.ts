@@ -5,6 +5,7 @@ import { runDevOpsPreflight, getDevOpsWorkspaceRoot } from '../devops/services/p
 import terraformRouter from './devopsTerraform';
 import ansibleRouter from './devopsAnsible';
 import puppetRouter from './devopsPuppet';
+import nagiosRouter from './devopsNagios';
 
 const router = Router();
 
@@ -37,5 +38,6 @@ router.get('/preflight', async (_req: Request, res: Response, next: NextFunction
 router.use('/terraform', terraformRouter);
 router.use('/ansible', ansibleRouter);
 router.use('/puppet', puppetRouter);
+router.use('/nagios', nagiosRouter);
 
 export default router;
