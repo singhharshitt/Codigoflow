@@ -26,6 +26,7 @@ import githubRouter from './routes/github';
 import jobsRouter from './routes/jobs';
 import workflowsRouter from './routes/workflows';
 import integrationsRouter from './routes/integrations';
+import devopsRouter from './routes/devops';
 import { registerSockets } from './sockets';
 
 import { getDockerStatus } from './integrations/docker';
@@ -98,6 +99,7 @@ export function createApp() {
   app.use('/api/jobs', jobsRouter);
   app.use('/api/workflows', workflowsRouter);
   app.use('/api/integrations', integrationsRouter);
+  app.use('/api/devops', devopsRouter);
   app.use('/api/history', (req, res, next) => {
     req.url = '/history';
     jobsRouter(req, res, next);
