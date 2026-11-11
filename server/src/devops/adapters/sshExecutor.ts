@@ -78,11 +78,19 @@ export class SshExecutor implements DevOpsExecutor {
       ? ['bash', '-lc', 'cd "$1" && shift && exec "$@"', '_', req.cwd, req.executable, ...req.args]
       : [req.executable, ...req.args];
 
+    // Default to StrictHostKeyChecking=yes (known_hosts required).
+    // Lab convenience: DEVOPS_SSH_STRICT_HOST_KEY=accept-new
+    const strictHostKey =
+      process.env.DEVOPS_SSH_STRICT_HOST_KEY?.trim() || 'yes';
+    if (!['yes', 'ask', 'accept-new', 'no'].includes(strictHostKey)) {
+      throw createError('Invalid DEVOPS_SSH_STRICT_HOST_KEY', 400, 'SSH_CONFIG_INVALID');
+    }
+
     const sshArgs = [
       '-o',
       'BatchMode=yes',
       '-o',
-      'StrictHostKeyChecking=accept-new',
+      `StrictHostKeyChecking=${strictHostKey}`,
       '-p',
       this.port,
     ];

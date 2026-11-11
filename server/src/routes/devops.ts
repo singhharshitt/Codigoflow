@@ -6,6 +6,8 @@ import terraformRouter from './devopsTerraform';
 import ansibleRouter from './devopsAnsible';
 import puppetRouter from './devopsPuppet';
 import nagiosRouter from './devopsNagios';
+import labRouter from './devopsLab';
+import { assessPipelineReadiness } from '../devops/services/pipelineReadiness';
 
 const router = Router();
 
@@ -35,9 +37,18 @@ router.get('/preflight', async (_req: Request, res: Response, next: NextFunction
   }
 });
 
+router.get('/pipeline', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json({ success: true, data: await assessPipelineReadiness() });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.use('/terraform', terraformRouter);
 router.use('/ansible', ansibleRouter);
 router.use('/puppet', puppetRouter);
 router.use('/nagios', nagiosRouter);
+router.use('/lab', labRouter);
 
 export default router;

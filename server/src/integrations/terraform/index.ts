@@ -181,6 +181,8 @@ export function approveTerraformPlan(planId: string, approvedBy: string) {
   return getTerraformPlan(planId);
 }
 
+const activeApplies = new Set<string>();
+
 export async function terraformApply(planId: string, approve: boolean, approvedBy?: string) {
   if (!approve) {
     throw createError('Apply requires approve: true', 400, 'CONFIRMATION_REQUIRED');
@@ -197,19 +199,32 @@ export async function terraformApply(planId: string, approve: boolean, approvedB
     throw createError('Plan integrity check failed before apply', 409, 'TF_PLAN_TAMPERED');
   }
 
-  const result = await tf(
-    plan.project_path,
-    ['apply', '-input=false', '-no-color', '-auto-approve', plan.plan_file_path],
-    600_000,
-  );
-  if (result.exitCode !== 0) {
-    throw createError(result.stderr || 'terraform apply failed', 500, 'TF_APPLY_FAILED');
+  const lockKey = `${plan.project_path}::${plan.workspace}`;
+  if (activeApplies.has(lockKey)) {
+    throw createError(
+      'Another terraform apply is already running for this project/workspace',
+      409,
+      'TF_APPLY_IN_PROGRESS',
+    );
   }
-  const now = Math.floor(Date.now() / 1000);
-  getDb()
-    .prepare(`UPDATE terraform_plans SET status = 'applied', applied_at = ? WHERE id = ?`)
-    .run(now, planId);
-  return { planId, output: result.stdout, status: 'applied' };
+  activeApplies.add(lockKey);
+  try {
+    const result = await tf(
+      plan.project_path,
+      ['apply', '-input=false', '-no-color', '-auto-approve', plan.plan_file_path],
+      600_000,
+    );
+    if (result.exitCode !== 0) {
+      throw createError(result.stderr || 'terraform apply failed', 500, 'TF_APPLY_FAILED');
+    }
+    const now = Math.floor(Date.now() / 1000);
+    getDb()
+      .prepare(`UPDATE terraform_plans SET status = 'applied', applied_at = ? WHERE id = ?`)
+      .run(now, planId);
+    return { planId, output: result.stdout, status: 'applied' };
+  } finally {
+    activeApplies.delete(lockKey);
+  }
 }
 
 export async function terraformWorkspaces(projectPath: string) {

@@ -298,6 +298,7 @@ Nagios ──── Verify Application Health
 - `docs/nagios-guide.md`
 - `docs/lab-setup.md`
 - `docs/end-to-end-deployment.md`
+- `docs/devops-security-audit.md`
 
 ---
 
