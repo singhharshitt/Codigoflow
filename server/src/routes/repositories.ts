@@ -21,6 +21,7 @@ import {
   importGithubRepository,
   previewGithubRepository,
 } from '../services/githubImport';
+import { analyzeAndPropose, analyzeRepository } from '../services/repositoryAnalysis';
 
 const router = Router();
 
@@ -129,6 +130,28 @@ router.delete('/:id', (req: Request, res: Response, next: NextFunction) => {
 router.get('/:id', (req: Request, res: Response, next: NextFunction) => {
   try {
     res.json({ success: true, data: getRepository(req.params.id) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:id/analyze', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = await analyzeRepository(req.params.id);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:id/deploy-proposal', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = await analyzeAndPropose(req.params.id);
+    res.json({
+      success: true,
+      data,
+      message: 'Proposal ready for review — not executed',
+    });
   } catch (err) {
     next(err);
   }
