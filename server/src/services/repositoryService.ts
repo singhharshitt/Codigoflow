@@ -3,14 +3,19 @@ import { v4 as uuidv4 } from 'uuid';
 import { createError } from '../middleware/errorHandler';
 import {
   validateRepoPath,
+  validateCloneDestination,
   isGitRepository,
   runGitCommand,
   parseGitStatus,
   hasSensitiveFiles,
+  withRepoLock,
+  isAllowedGitRemote,
+  sanitizeRemoteUrl,
 } from '../integrations/git';
 import { logger } from '../utils/logger';
 import { asRow, asRows } from '../utils/dbCast';
 import path from 'path';
+import fs from 'fs';
 
 export interface Repository {
   id: string;
@@ -247,26 +252,84 @@ export async function stageFiles(id: string, files: string[]): Promise<void> {
   }
 
   const repo = getRepository(id);
-
-  // Warn about sensitive files but do not auto-block (let user decide)
   const sensitive = hasSensitiveFiles(files);
   if (sensitive.length > 0) {
     logger.warn({ sensitive }, 'Staging potentially sensitive files');
   }
 
-  // Stage each file individually to avoid argument injection
-  for (const file of files) {
-    const result = await runGitCommand(repo.path, ['add', '--', file]);
-    if (result.exitCode !== 0) {
-      throw createError(`Failed to stage ${file}: ${result.stderr}`, 500, 'STAGE_FAILED');
+  await withRepoLock(repo.path, async () => {
+    for (const file of files) {
+      const result = await runGitCommand(repo.path, ['add', '--', file]);
+      if (result.exitCode !== 0) {
+        throw createError(`Failed to stage ${file}: ${result.stderr}`, 500, 'STAGE_FAILED');
+      }
     }
+  });
+}
+
+export async function unstageFiles(id: string, files: string[]): Promise<void> {
+  if (!files || files.length === 0) {
+    throw createError('At least one file must be specified for unstaging', 400, 'NO_FILES');
   }
+  const repo = getRepository(id);
+  await withRepoLock(repo.path, async () => {
+    for (const file of files) {
+      const result = await runGitCommand(repo.path, ['restore', '--staged', '--', file]);
+      if (result.exitCode !== 0) {
+        // Fallback for older Git
+        const fallback = await runGitCommand(repo.path, ['reset', 'HEAD', '--', file]);
+        if (fallback.exitCode !== 0) {
+          throw createError(
+            `Failed to unstage ${file}: ${result.stderr || fallback.stderr}`,
+            500,
+            'UNSTAGE_FAILED',
+          );
+        }
+      }
+    }
+  });
+}
+
+export async function checkoutBranch(
+  id: string,
+  branch: string,
+  force = false,
+): Promise<{ branch: string; warning?: string }> {
+  if (!/^[A-Za-z0-9._/-]+$/.test(branch)) {
+    throw createError('Invalid branch name', 400, 'INVALID_BRANCH');
+  }
+  const repo = getRepository(id);
+  return withRepoLock(repo.path, async () => {
+    const status = await runGitCommand(repo.path, ['status', '--porcelain=v1']);
+    const dirty = status.stdout.trim().length > 0;
+    if (dirty && !force) {
+      throw createError(
+        'Working tree has uncommitted changes. Commit, stash, or confirm force checkout.',
+        409,
+        'DIRTY_WORKTREE',
+      );
+    }
+    const args = force ? ['checkout', '-f', branch] : ['checkout', branch];
+    const result = await runGitCommand(repo.path, args);
+    if (result.exitCode !== 0) {
+      throw createError(`Checkout failed: ${result.stderr}`, 500, 'CHECKOUT_FAILED');
+    }
+    return {
+      branch,
+      warning: dirty ? 'Forced checkout with a dirty working tree' : undefined,
+    };
+  });
 }
 
 export async function commitChanges(
   id: string,
   message: string,
+  confirm = true,
 ): Promise<{ hash: string; message: string }> {
+  // Frontend already confirms via modal; optional body.confirm=false rejects.
+  if (confirm === false) {
+    throw createError('Commit requires explicit confirmation', 400, 'CONFIRMATION_REQUIRED');
+  }
   if (!message || message.trim().length === 0) {
     throw createError('Commit message cannot be empty', 400, 'EMPTY_MESSAGE');
   }
@@ -275,31 +338,81 @@ export async function commitChanges(
   }
 
   const repo = getRepository(id);
-  const result = await runGitCommand(repo.path, ['commit', '-m', message]);
-
-  if (result.exitCode !== 0) {
-    throw createError(`Commit failed: ${result.stderr}`, 500, 'COMMIT_FAILED');
-  }
-
-  // Get the new commit hash
-  const hashResult = await runGitCommand(repo.path, ['rev-parse', 'HEAD']);
-  return {
-    hash: hashResult.stdout.trim(),
-    message: message.trim(),
-  };
+  return withRepoLock(repo.path, async () => {
+    const result = await runGitCommand(repo.path, ['commit', '-m', message]);
+    if (result.exitCode !== 0) {
+      throw createError(`Commit failed: ${result.stderr}`, 500, 'COMMIT_FAILED');
+    }
+    const hashResult = await runGitCommand(repo.path, ['rev-parse', 'HEAD']);
+    return { hash: hashResult.stdout.trim(), message: message.trim() };
+  });
 }
 
-export async function pushChanges(id: string, remote = 'origin', branch?: string): Promise<string> {
-  const repo = getRepository(id);
-
-  const currentBranch = branch ?? (await runGitCommand(repo.path, ['rev-parse', '--abbrev-ref', 'HEAD'])).stdout.trim();
-
-  const args = ['push', remote, currentBranch];
-  const result = await runGitCommand(repo.path, args, { timeoutMs: 60000 });
-
-  if (result.exitCode !== 0) {
-    throw createError(`Push failed: ${result.stderr}`, 500, 'PUSH_FAILED');
+export async function pushChanges(
+  id: string,
+  remote = 'origin',
+  branch?: string,
+  confirm = true,
+): Promise<string> {
+  if (confirm === false) {
+    throw createError('Push requires explicit confirmation', 400, 'CONFIRMATION_REQUIRED');
+  }
+  if (!/^[A-Za-z0-9._-]+$/.test(remote)) {
+    throw createError('Invalid remote name', 400, 'INVALID_REMOTE');
   }
 
-  return result.stdout + result.stderr;
+  const repo = getRepository(id);
+  return withRepoLock(repo.path, async () => {
+    const currentBranch =
+      branch ??
+      (await runGitCommand(repo.path, ['rev-parse', '--abbrev-ref', 'HEAD'])).stdout.trim();
+    const result = await runGitCommand(repo.path, ['push', remote, currentBranch], {
+      timeoutMs: 60_000,
+    });
+    if (result.exitCode !== 0) {
+      throw createError(`Push failed: ${result.stderr}`, 500, 'PUSH_FAILED');
+    }
+    return result.stdout + result.stderr;
+  });
+}
+
+export async function cloneRepository(input: {
+  url: string;
+  destination: string;
+  name?: string;
+  description?: string;
+}): Promise<Repository> {
+  if (!isAllowedGitRemote(input.url)) {
+    throw createError('Unsupported or invalid Git remote URL', 400, 'INVALID_REMOTE_URL');
+  }
+  const dest = validateCloneDestination(input.destination);
+  if (!fs.existsSync(dest)) {
+    fs.mkdirSync(dest, { recursive: true });
+  }
+
+  const parent = path.dirname(dest);
+  const folder = path.basename(dest);
+  const result = await runGitCommand(
+    parent,
+    ['clone', '--', input.url, folder],
+    { timeoutMs: 120_000, allowCwdFallback: true },
+  );
+  if (result.exitCode !== 0) {
+    throw createError(
+      `Clone failed: ${result.stderr || result.stdout}`,
+      500,
+      'CLONE_FAILED',
+    );
+  }
+
+  logger.info(
+    { url: sanitizeRemoteUrl(input.url), destination: dest },
+    'Repository cloned',
+  );
+
+  return registerRepository({
+    path: dest,
+    name: input.name,
+    description: input.description,
+  });
 }
