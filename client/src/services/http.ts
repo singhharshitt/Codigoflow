@@ -9,6 +9,12 @@ export const http = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// Optional DevOps mutation token (must match server DEVOPS_API_TOKEN when configured)
+const devopsToken = import.meta.env.VITE_DEVOPS_API_TOKEN as string | undefined;
+if (devopsToken) {
+  http.defaults.headers.common.Authorization = `Bearer ${devopsToken}`;
+}
+
 export class ApiClientError extends Error {
   code: string;
   status?: number;
