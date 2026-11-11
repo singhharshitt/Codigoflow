@@ -4,6 +4,7 @@ import { detectDevOpsTools } from '../devops/services/toolDetection';
 import { runDevOpsPreflight, getDevOpsWorkspaceRoot } from '../devops/services/preflight';
 import terraformRouter from './devopsTerraform';
 import ansibleRouter from './devopsAnsible';
+import puppetRouter from './devopsPuppet';
 
 const router = Router();
 
@@ -35,5 +36,6 @@ router.get('/preflight', async (_req: Request, res: Response, next: NextFunction
 
 router.use('/terraform', terraformRouter);
 router.use('/ansible', ansibleRouter);
+router.use('/puppet', puppetRouter);
 
 export default router;

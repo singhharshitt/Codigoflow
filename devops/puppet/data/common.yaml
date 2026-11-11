@@ -1,0 +1,4 @@
+---
+codigoflow::app_root: /opt/codigoflow/app
+codigoflow::drift_file: /opt/codigoflow/lab/managed.conf
+codigoflow::web_port: 8080
