@@ -1,0 +1,29 @@
+# Optional CódigoFlow DevOps lab — VirtualBox + Vagrant
+# Do not auto-install VirtualBox/Vagrant. Run only after reviewing resource usage.
+# Usage (from this directory): vagrant up
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+
+  config.vm.define "mgmt" do |mgmt|
+    mgmt.vm.hostname = "codigoflow-mgmt"
+    mgmt.vm.network "private_network", ip: "192.168.56.10"
+    mgmt.vm.provider "virtualbox" do |vb|
+      vb.memory = Integer(ENV.fetch("CF_MGMT_MEMORY", "4096"))
+      vb.cpus = Integer(ENV.fetch("CF_MGMT_CPUS", "2"))
+      vb.name = "codigoflow-mgmt"
+    end
+    mgmt.vm.provision "shell", path: "setup/mgmt-bootstrap.sh"
+  end
+
+  config.vm.define "app" do |app|
+    app.vm.hostname = "codigoflow-app"
+    app.vm.network "private_network", ip: "192.168.56.11"
+    app.vm.provider "virtualbox" do |vb|
+      vb.memory = Integer(ENV.fetch("CF_APP_MEMORY", "2048"))
+      vb.cpus = Integer(ENV.fetch("CF_APP_CPUS", "1"))
+      vb.name = "codigoflow-app"
+    end
+    app.vm.provision "shell", path: "setup/app-bootstrap.sh"
+  end
+end

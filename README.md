@@ -24,8 +24,8 @@ CódigoFlow is an AI-powered development automation platform that unifies Git/Gi
 | Contribution and commit visualization | ✅ Working |
 | Execution history and job tracking | ✅ Working |
 | Live updates via Socket.IO | ✅ Working |
-| Workflow Builder | 🔜 Phase 2 |
-| Terraform / Ansible / Puppet / Nagios | 🔜 Phase 3 |
+| Workflow Builder (DevOps executors) | ✅ Working |
+| Terraform / Ansible / Puppet / Nagios Control Center | ✅ Working (requires Linux control node for live tool binaries) |
 
 ---
 
@@ -56,7 +56,8 @@ CódigoFlow is an AI-powered development automation platform that unifies Git/Gi
 - **npm** 9+ (bundled with Node.js)
 - **Git** — [git-scm.com](https://git-scm.com)
 - **Docker Desktop** (optional) — for container management
-- An AI API key (optional) — OpenAI, Groq, or any OpenAI-compatible provider
+- An AI API key (optional) — OpenAI, Groq, NVIDIA NIM, or any OpenAI-compatible provider
+- **WSL2 Ubuntu / Ubuntu VM** (optional) — required to execute Terraform, Ansible, Puppet, and Nagios for real (see `docs/lab-setup.md`)
 
 ---
 
@@ -290,6 +291,13 @@ Nagios ──── Verify Application Health
 - `docs/git-integration.md`
 - `docs/docker-integration.md`
 - `docs/development-setup.md`
+- `docs/devops-architecture.md`
+- `docs/terraform-guide.md`
+- `docs/ansible-guide.md`
+- `docs/puppet-guide.md`
+- `docs/nagios-guide.md`
+- `docs/lab-setup.md`
+- `docs/end-to-end-deployment.md`
 
 ---
 
@@ -305,3 +313,5 @@ Nagios ──── Verify Application Health
 | AI returns 503 | Set `NVIDIA_API_KEY` in `server/.env` |
 | GitHub rate limit | Add `GITHUB_TOKEN` to `server/.env` |
 | Database locked error | Only one server instance should run at a time |
+| DevOps tools unavailable on Windows | Use WSL2/SSH control node; see Lab Environment page |
+| Workflow run fails validation | Use executable DevOps node kinds and required config JSON |
