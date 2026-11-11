@@ -19,13 +19,31 @@ import {
   Tabs,
   LoadingSpinner,
 } from '../../components/ui';
-import { repositoriesApi, githubApi, type LocalRepoInspect } from '../../services/api';
+import { repositoriesApi, type LocalRepoInspect } from '../../services/api';
 import type { Repository } from '../../types';
 
 const GITHUB_URL_RE =
   /^https?:\/\/(www\.)?github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?(\.git)?\/?(\?.*)?$/i;
 
-type Workflow = 'clone' | 'local';
+type Workflow = 'import' | 'local' | 'clone';
+
+type GithubPreview = {
+  url: string;
+  owner: string;
+  repo: string;
+  fullName: string;
+  description: string | null;
+  private: boolean;
+  defaultBranch: string;
+  language: string | null;
+  stars: number | null;
+  sizeKb: number | null;
+  importAllowed: boolean;
+  authRequired: boolean;
+  oversized: boolean;
+  sizeLimitMb: number;
+  note: string;
+};
 
 function parseGithubUrl(url: string): { owner: string; repo: string } | null {
   const match = url.trim().match(/github\.com\/([^/]+)\/([^/.\s?#]+)/i);
@@ -60,18 +78,22 @@ export function AddRepositoryModal({
   existingPaths: string[];
   onRegistered: (repo: Repository) => void;
 }) {
-  const [workflow, setWorkflow] = useState<Workflow>('clone');
+  const [workflow, setWorkflow] = useState<Workflow>('import');
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
-  // Clone workflow
+  // Managed GitHub import
   const [url, setUrl] = useState('');
-  const [destParent, setDestParent] = useState('');
+  const [branch, setBranch] = useState('');
   const [cloneName, setCloneName] = useState('');
   const [cloneDescription, setCloneDescription] = useState('');
   const [urlError, setUrlError] = useState<string>();
-  const [destError, setDestError] = useState<string>();
-  const [preview, setPreview] = useState<Record<string, unknown> | null>(null);
+  const [preview, setPreview] = useState<GithubPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  // Custom destination clone (advanced)
+  const [destParent, setDestParent] = useState('');
+  const [destError, setDestError] = useState<string>();
   const [cloning, setCloning] = useState(false);
 
   // Local workflow
@@ -95,13 +117,14 @@ export function AddRepositoryModal({
   };
 
   function reset() {
-    setWorkflow('clone');
+    setWorkflow('import');
     setAdvancedOpen(false);
     setUrl('');
-    setDestParent('');
+    setBranch('');
     setCloneName('');
     setCloneDescription('');
     setUrlError(undefined);
+    setDestParent('');
     setDestError(undefined);
     setPreview(null);
     setLocalPath('');
@@ -112,7 +135,7 @@ export function AddRepositoryModal({
   }
 
   function handleClose() {
-    if (cloning || registering) return;
+    if (importing || cloning || registering) return;
     reset();
     onClose();
   }
@@ -126,9 +149,9 @@ export function AddRepositoryModal({
     setUrlError(undefined);
     setPreviewLoading(true);
     setPreview(null);
-    const res = await githubApi.repo(url.trim());
+    const res = await repositoriesApi.githubPreview(url.trim());
     setPreviewLoading(false);
-    if (!res.success) {
+    if (!res.success || !res.data) {
       const code = res.error?.code;
       if (code === 'RATE_LIMIT') {
         toast.error(res.error?.message ?? 'GitHub rate limit exceeded');
@@ -139,15 +162,49 @@ export function AddRepositoryModal({
       }
       return;
     }
-    const data = res.data as Record<string, unknown>;
-    setPreview(data);
-    if (!cloneName.trim() && typeof data.name === 'string') {
-      setCloneName(data.name);
+    setPreview(res.data);
+    if (!cloneName.trim()) setCloneName(res.data.repo);
+    if (!cloneDescription.trim() && res.data.description) {
+      setCloneDescription(res.data.description);
     }
-    if (!cloneDescription.trim() && typeof data.description === 'string' && data.description) {
-      setCloneDescription(data.description);
-    }
+    if (!branch.trim()) setBranch(res.data.defaultBranch);
     toast.success('Repository metadata loaded');
+  }
+
+  async function handleImport() {
+    const uErr = validateGithubUrl(url);
+    if (uErr) {
+      setUrlError(uErr);
+      return;
+    }
+    if (preview?.private || preview?.authRequired) {
+      toast.error('Private repositories require server authentication');
+      return;
+    }
+    if (preview?.oversized) {
+      toast.error(`Repository exceeds import size limit (${preview.sizeLimitMb} MB)`);
+      return;
+    }
+
+    setUrlError(undefined);
+    setImporting(true);
+    const res = await repositoriesApi.githubImport({
+      url: url.trim(),
+      branch: branch.trim() || undefined,
+      name: cloneName.trim() || undefined,
+      description: cloneDescription.trim() || undefined,
+    });
+    setImporting(false);
+
+    if (!res.success || !res.data) {
+      toast.error(res.error?.message ?? 'Import failed');
+      return;
+    }
+
+    toast.success(res.data.message || 'Repository imported');
+    onRegistered(res.data.repository);
+    reset();
+    onClose();
   }
 
   async function handleClone() {
@@ -175,7 +232,7 @@ export function AddRepositoryModal({
 
     setCloning(true);
     const res = await repositoriesApi.clone({
-      url: url.trim().replace(/\.git$/i, ''),
+      url: url.trim().replace(/\.git$/i, '') + '.git',
       destination,
       name: cloneName.trim() || undefined,
       description: cloneDescription.trim() || undefined,
@@ -275,6 +332,14 @@ export function AddRepositoryModal({
     onClose();
   }
 
+  const importDisabled =
+    importing ||
+    previewLoading ||
+    !url.trim() ||
+    Boolean(urlError) ||
+    preview?.private === true ||
+    preview?.oversized === true;
+
   const cloneDisabled =
     cloning || previewLoading || !url.trim() || !destParent.trim() || Boolean(urlError || destError);
   const localDisabled =
@@ -289,8 +354,9 @@ export function AddRepositoryModal({
       <div className="space-y-4">
         <Tabs
           tabs={[
-            { id: 'clone' as const, label: 'Clone from GitHub' },
+            { id: 'import' as const, label: 'Import from GitHub' },
             { id: 'local' as const, label: 'Add existing local' },
+            { id: 'clone' as const, label: 'Custom path clone' },
           ]}
           value={workflow}
           onChange={(id) => {
@@ -302,13 +368,13 @@ export function AddRepositoryModal({
         <div className="flex gap-2 rounded-lg border border-cf-border/80 bg-cf-navy/50 px-3 py-2 text-xs text-cf-muted">
           <Info className="w-3.5 h-3.5 text-cf-cyan shrink-0 mt-0.5" />
           <p>
-            Paths are resolved by the CódigoFlow <span className="text-cf-text">backend on this machine</span>.
-            Browsers cannot browse arbitrary folders — enter an absolute path the server can access
-            (for example <code className="font-mono text-cf-cyan">D:\Projects</code>).
+            {workflow === 'import'
+              ? 'Public GitHub repositories are cloned into server-managed storage — no local folder path required.'
+              : 'Paths are resolved by the CódigoFlow backend on this machine. Enter an absolute path the server can access.'}
           </p>
         </div>
 
-        {workflow === 'clone' ? (
+        {workflow === 'import' ? (
           <div className="space-y-4">
             <Input
               label="GitHub repository URL"
@@ -320,7 +386,7 @@ export function AddRepositoryModal({
                 setUrlError(undefined);
                 setPreview(null);
               }}
-              disabled={cloning}
+              disabled={importing}
               autoComplete="off"
             />
 
@@ -330,7 +396,7 @@ export function AddRepositoryModal({
                 variant="secondary"
                 onClick={() => void handlePreview()}
                 loading={previewLoading}
-                disabled={cloning || !url.trim()}
+                disabled={importing || !url.trim()}
               >
                 <Search className="w-4 h-4" />
                 Preview metadata
@@ -350,16 +416,13 @@ export function AddRepositoryModal({
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 text-sm font-medium text-cf-text">
                       <Github className="w-4 h-4 text-cf-cyan shrink-0" />
-                      <span className="truncate">
-                        {(preview.full_name as string) ||
-                          (parsed ? `${parsed.owner}/${parsed.repo}` : 'Repository')}
-                      </span>
+                      <span className="truncate">{preview.fullName}</span>
                     </div>
-                    {typeof preview.description === 'string' && preview.description && (
+                    {preview.description && (
                       <p className="text-xs text-cf-muted mt-1">{preview.description}</p>
                     )}
                   </div>
-                  {preview.private === true ? (
+                  {preview.private ? (
                     <Badge variant="warning">
                       <span className="inline-flex items-center gap-1">
                         <Lock className="w-3 h-3" /> Private
@@ -374,30 +437,84 @@ export function AddRepositoryModal({
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs">
-                  {typeof preview.language === 'string' && preview.language && (
-                    <Badge variant="info">{preview.language}</Badge>
-                  )}
-                  {typeof preview.default_branch === 'string' && (
-                    <Badge variant="violet">
-                      <span className="inline-flex items-center gap-1">
-                        <GitBranch className="w-3 h-3" />
-                        {preview.default_branch}
-                      </span>
-                    </Badge>
-                  )}
-                  {typeof preview.stargazers_count === 'number' && (
-                    <Badge variant="muted">★ {preview.stargazers_count}</Badge>
-                  )}
+                  {preview.language && <Badge variant="info">{preview.language}</Badge>}
+                  <Badge variant="violet">
+                    <span className="inline-flex items-center gap-1">
+                      <GitBranch className="w-3 h-3" />
+                      {preview.defaultBranch}
+                    </span>
+                  </Badge>
+                  {preview.stars != null && <Badge variant="muted">★ {preview.stars}</Badge>}
                 </div>
-                {preview.private === true && (
-                  <p className="text-[11px] text-cf-faint">
-                    Private clones use server-side Git credentials / <code className="font-mono">GITHUB_TOKEN</code>.
-                    Tokens are never sent to the browser.
-                  </p>
-                )}
+                <p className="text-[11px] text-cf-faint">{preview.note}</p>
               </div>
             )}
 
+            <Input
+              label="Branch (optional)"
+              placeholder={preview?.defaultBranch || 'default branch'}
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              disabled={importing}
+            />
+
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-cf-muted hover:text-cf-cyan"
+              onClick={() => setAdvancedOpen((v) => !v)}
+            >
+              {advancedOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              Advanced details
+            </button>
+            {advancedOpen && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Display name"
+                  placeholder={suggestedFolder || 'Optional'}
+                  value={cloneName}
+                  onChange={(e) => setCloneName(e.target.value)}
+                  disabled={importing}
+                />
+                <Input
+                  label="Description"
+                  placeholder="Optional"
+                  value={cloneDescription}
+                  onChange={(e) => setCloneDescription(e.target.value)}
+                  disabled={importing}
+                />
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="secondary" onClick={handleClose} disabled={importing}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                loading={importing}
+                disabled={importDisabled}
+                onClick={() => void handleImport()}
+              >
+                <Github className="w-4 h-4" />
+                Import
+              </Button>
+            </div>
+          </div>
+        ) : workflow === 'clone' ? (
+          <div className="space-y-4">
+            <Input
+              label="GitHub repository URL"
+              placeholder="https://github.com/owner/repository"
+              value={url}
+              error={urlError}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                setUrlError(undefined);
+              }}
+              disabled={cloning}
+              autoComplete="off"
+            />
             <Input
               label="Local destination parent directory"
               placeholder="e.g. D:\Projects"
@@ -415,34 +532,6 @@ export function AddRepositoryModal({
                 Will clone into: {destination}
               </p>
             )}
-
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-xs text-cf-muted hover:text-cf-cyan"
-              onClick={() => setAdvancedOpen((v) => !v)}
-            >
-              {advancedOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-              Advanced details
-            </button>
-            {advancedOpen && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Input
-                  label="Display name"
-                  placeholder={suggestedFolder || 'Optional'}
-                  value={cloneName}
-                  onChange={(e) => setCloneName(e.target.value)}
-                  disabled={cloning}
-                />
-                <Input
-                  label="Description"
-                  placeholder="Optional"
-                  value={cloneDescription}
-                  onChange={(e) => setCloneDescription(e.target.value)}
-                  disabled={cloning}
-                />
-              </div>
-            )}
-
             <div className="flex justify-end gap-2 pt-1">
               <Button type="button" variant="secondary" onClick={handleClose} disabled={cloning}>
                 Cancel
@@ -506,16 +595,7 @@ export function AddRepositoryModal({
                   ) : (
                     <Badge variant="success">Ready to register</Badge>
                   )}
-                  {inspect.status && (
-                    <Badge variant="muted">
-                      {inspect.status.staged} staged · {inspect.status.unstaged} modified ·{' '}
-                      {inspect.status.untracked} untracked
-                    </Badge>
-                  )}
                 </div>
-                {inspect.remoteUrl && (
-                  <p className="text-[11px] text-cf-muted truncate">Remote: {inspect.remoteUrl}</p>
-                )}
               </div>
             )}
 

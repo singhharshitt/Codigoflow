@@ -17,6 +17,10 @@ import {
   cloneRepository,
   inspectLocalRepository,
 } from '../services/repositoryService';
+import {
+  importGithubRepository,
+  previewGithubRepository,
+} from '../services/githubImport';
 
 const router = Router();
 
@@ -70,6 +74,41 @@ router.post('/inspect', async (req: Request, res: Response, next: NextFunction) 
     const body = InspectSchema.parse(req.body);
     const data = await inspectLocalRepository(body.path);
     res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const GithubPreviewSchema = z.object({
+  url: z.string().min(1),
+});
+
+router.post('/github/preview', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const body = GithubPreviewSchema.parse(req.body);
+    const data = await previewGithubRepository(body.url);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const GithubImportSchema = z.object({
+  url: z.string().min(1),
+  branch: z.string().min(1).max(200).optional(),
+  name: z.string().max(200).optional(),
+  description: z.string().max(2000).optional(),
+});
+
+router.post('/github/import', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const body = GithubImportSchema.parse(req.body);
+    const data = await importGithubRepository(body);
+    res.status(data.alreadyPresent ? 200 : 201).json({
+      success: true,
+      data,
+      message: data.message,
+    });
   } catch (err) {
     next(err);
   }

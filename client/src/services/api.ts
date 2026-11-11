@@ -41,6 +41,39 @@ export const repositoriesApi = {
       data: body,
       timeout: 180_000,
     }),
+  githubPreview: (url: string) =>
+    apiRequest<{
+      url: string;
+      owner: string;
+      repo: string;
+      fullName: string;
+      description: string | null;
+      private: boolean;
+      defaultBranch: string;
+      language: string | null;
+      stars: number | null;
+      sizeKb: number | null;
+      importAllowed: boolean;
+      authRequired: boolean;
+      oversized: boolean;
+      sizeLimitMb: number;
+      note: string;
+    }>('/repositories/github/preview', {
+      method: 'POST',
+      data: { url },
+    }),
+  githubImport: (body: { url: string; branch?: string; name?: string; description?: string }) =>
+    apiRequest<{
+      repository: Repository;
+      alreadyPresent: boolean;
+      destination: string;
+      branch: string;
+      message: string;
+    }>('/repositories/github/import', {
+      method: 'POST',
+      data: body,
+      timeout: 180_000,
+    }),
   inspect: (path: string) =>
     apiRequest<LocalRepoInspect>('/repositories/inspect', {
       method: 'POST',
