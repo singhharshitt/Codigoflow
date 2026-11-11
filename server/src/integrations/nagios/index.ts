@@ -57,12 +57,21 @@ function mapServiceState(code: string | undefined) {
   }
 }
 
+function resolveNagiosStatusFile(): { statusFile: string; source: 'live' | 'sample' } {
+  const configured = process.env.NAGIOS_STATUS_FILE?.trim();
+  if (configured) {
+    return { statusFile: path.resolve(configured), source: 'live' };
+  }
+  return {
+    statusFile: path.join(nagiosRoot(), 'config', 'status.dat.sample'),
+    source: 'sample',
+  };
+}
+
 export async function getNagiosStatus() {
   const tools = await detectDevOpsTools();
   const nagios = tools.find((t) => t.name === 'nagios');
-  const statusFile =
-    process.env.NAGIOS_STATUS_FILE ||
-    path.join(nagiosRoot(), 'config', 'status.dat.sample');
+  const { statusFile, source } = resolveNagiosStatusFile();
 
   return {
     available: Boolean(nagios?.available) || fs.existsSync(statusFile),
@@ -72,13 +81,17 @@ export async function getNagiosStatus() {
     installHint: nagios?.installHint,
     statusFile,
     statusFileExists: fs.existsSync(statusFile),
+    dataSource: source,
+    isSampleData: source === 'sample',
+    note:
+      source === 'sample'
+        ? 'Showing bundled sample status.dat — not live monitoring. Set NAGIOS_STATUS_FILE for real Nagios Core output.'
+        : 'Reading configured NAGIOS_STATUS_FILE (live/operator-provided path).',
   };
 }
 
 export function readNagiosStatus() {
-  const statusFile =
-    process.env.NAGIOS_STATUS_FILE ||
-    path.join(nagiosRoot(), 'config', 'status.dat.sample');
+  const { statusFile, source } = resolveNagiosStatusFile();
   if (!fs.existsSync(statusFile)) {
     throw createError(
       'Nagios status file not found. Set NAGIOS_STATUS_FILE or install Nagios Core.',
@@ -90,6 +103,12 @@ export function readNagiosStatus() {
   const parsed = parseStatusDat(raw);
   return {
     statusFile,
+    dataSource: source,
+    isSampleData: source === 'sample',
+    note:
+      source === 'sample'
+        ? 'Sample monitoring data only — not live Nagios status.'
+        : 'Status from configured Nagios status file.',
     hosts: parsed.hosts.map((h) => ({
       ...h,
       stateLabel: mapHostState(h.current_state),

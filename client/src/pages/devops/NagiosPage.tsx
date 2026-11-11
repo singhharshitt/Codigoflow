@@ -53,8 +53,16 @@ export function NagiosPage() {
           </Button>
         }
       />
-      <Alert variant="info" className="relative z-10">
-        Uses NAGIOS_STATUS_FILE when set; otherwise the repository sample status file for UI development.
+      <Alert
+        variant={status?.isSampleData === false ? 'info' : 'warning'}
+        className="relative z-10"
+      >
+        {status?.isSampleData === false
+          ? String(status?.note ?? 'Live / configured Nagios status file.')
+          : String(
+              status?.note ??
+                'Sample monitoring data only — not live Nagios. Set NAGIOS_STATUS_FILE for real status.',
+            )}
       </Alert>
 
       {loading ? (
@@ -64,6 +72,9 @@ export function NagiosPage() {
       ) : (
         <div className="relative z-10 space-y-4">
           <Card className="flex flex-wrap gap-3 items-center">
+            <Badge variant={status?.isSampleData ? 'warning' : 'success'}>
+              {status?.isSampleData ? 'sample data' : 'configured source'}
+            </Badge>
             <Badge variant={status?.available || status?.statusFileExists ? 'success' : 'warning'}>
               {status?.version ? String(status.version) : 'status source'}
             </Badge>

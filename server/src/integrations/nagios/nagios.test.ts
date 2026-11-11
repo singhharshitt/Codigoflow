@@ -16,7 +16,10 @@ describe('nagios integration', () => {
   });
 
   it('reads sample status when NAGIOS_STATUS_FILE unset', () => {
+    delete process.env.NAGIOS_STATUS_FILE;
     const data = readNagiosStatus();
+    expect(data.isSampleData).toBe(true);
+    expect(data.dataSource).toBe('sample');
     expect(data.hosts[0].stateLabel).toBe('UP');
     expect(data.services.some((s) => s.stateLabel === 'OK')).toBe(true);
   });

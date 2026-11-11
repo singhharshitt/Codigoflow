@@ -22,7 +22,16 @@ router.get('/status', async (_req, res, next) => {
 router.get('/hosts', (_req, res, next) => {
   try {
     const data = readNagiosStatus();
-    res.json({ success: true, data: data.hosts });
+    res.json({
+      success: true,
+      data: data.hosts,
+      meta: {
+        dataSource: data.dataSource,
+        isSampleData: data.isSampleData,
+        note: data.note,
+        statusFile: data.statusFile,
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -31,7 +40,16 @@ router.get('/hosts', (_req, res, next) => {
 router.get('/services', (_req, res, next) => {
   try {
     const data = readNagiosStatus();
-    res.json({ success: true, data: data.services });
+    res.json({
+      success: true,
+      data: data.services,
+      meta: {
+        dataSource: data.dataSource,
+        isSampleData: data.isSampleData,
+        note: data.note,
+        statusFile: data.statusFile,
+      },
+    });
   } catch (err) {
     next(err);
   }
