@@ -1,18 +1,48 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
-import { OverviewPage } from './pages/OverviewPage';
-import { RepositoriesPage } from './pages/RepositoriesPage';
-import { GitStudioPage } from './pages/GitStudioPage';
-import { DockerManagerPage } from './pages/DockerManagerPage';
-import { AICopilotPage } from './pages/AICopilotPage';
-import { ContributionExplorerPage } from './pages/ContributionExplorerPage';
-import { ExecutionHistoryPage } from './pages/ExecutionHistoryPage';
-import { WorkflowBuilderPage } from './pages/WorkflowBuilderPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { HelpPage } from './pages/HelpPage';
+import { LoadingSpinner } from './components/ui';
 import { useAppStore } from './stores/appStore';
 import { useRepoStore } from './stores/repoStore';
+
+const OverviewPage = lazy(() =>
+  import('./pages/OverviewPage').then((m) => ({ default: m.OverviewPage })),
+);
+const RepositoriesPage = lazy(() =>
+  import('./pages/RepositoriesPage').then((m) => ({ default: m.RepositoriesPage })),
+);
+const GitStudioPage = lazy(() =>
+  import('./pages/GitStudioPage').then((m) => ({ default: m.GitStudioPage })),
+);
+const DockerManagerPage = lazy(() =>
+  import('./pages/DockerManagerPage').then((m) => ({ default: m.DockerManagerPage })),
+);
+const AICopilotPage = lazy(() =>
+  import('./pages/AICopilotPage').then((m) => ({ default: m.AICopilotPage })),
+);
+const ContributionExplorerPage = lazy(() =>
+  import('./pages/ContributionExplorerPage').then((m) => ({
+    default: m.ContributionExplorerPage,
+  })),
+);
+const WorkflowBuilderPage = lazy(() =>
+  import('./pages/WorkflowBuilderPage').then((m) => ({ default: m.WorkflowBuilderPage })),
+);
+const ExecutionHistoryPage = lazy(() =>
+  import('./pages/ExecutionHistoryPage').then((m) => ({ default: m.ExecutionHistoryPage })),
+);
+const SettingsPage = lazy(() =>
+  import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
+);
+const HelpPage = lazy(() => import('./pages/HelpPage').then((m) => ({ default: m.HelpPage })));
+
+function PageFallback() {
+  return (
+    <div className="flex items-center justify-center h-64">
+      <LoadingSpinner size="lg" />
+    </div>
+  );
+}
 
 export default function App() {
   const { fetchHealth } = useAppStore();
@@ -29,16 +59,86 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<AppShell />}>
-          <Route index element={<OverviewPage />} />
-          <Route path="repositories" element={<RepositoriesPage />} />
-          <Route path="git" element={<GitStudioPage />} />
-          <Route path="docker" element={<DockerManagerPage />} />
-          <Route path="ai" element={<AICopilotPage />} />
-          <Route path="contributions" element={<ContributionExplorerPage />} />
-          <Route path="workflow" element={<WorkflowBuilderPage />} />
-          <Route path="history" element={<ExecutionHistoryPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="help" element={<HelpPage />} />
+          <Route
+            index
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <OverviewPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="repositories"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <RepositoriesPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="git"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <GitStudioPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="docker"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <DockerManagerPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="ai"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <AICopilotPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="contributions"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <ContributionExplorerPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="workflow"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <WorkflowBuilderPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="history"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <ExecutionHistoryPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <SettingsPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="help"
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <HelpPage />
+              </Suspense>
+            }
+          />
         </Route>
       </Routes>
     </BrowserRouter>
