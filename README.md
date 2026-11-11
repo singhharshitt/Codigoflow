@@ -147,9 +147,10 @@ npm run dev:client
 | `CLIENT_ORIGIN` | No | Frontend origin for CORS |
 | `DATABASE_PATH` | No | SQLite file path |
 | `LOG_LEVEL` | No | Pino log level |
-| `AI_API_KEY` | Optional | API key for AI features |
-| `AI_BASE_URL` | Optional | OpenAI-compatible base URL |
-| `AI_MODEL` | Optional | Model identifier |
+| `NVIDIA_API_KEY` | Optional | NVIDIA NIM API key (preferred) |
+| `NVIDIA_BASE_URL` | Optional | Default `https://integrate.api.nvidia.com/v1` |
+| `NVIDIA_MODEL` | Optional | e.g. `qwen/qwen2.5-coder-32b-instruct` |
+| `AI_API_KEY` | Optional | Fallback if `NVIDIA_API_KEY` is unset |
 | `GITHUB_TOKEN` | Optional | GitHub Personal Access Token |
 
 ### Client (`client/.env`)
@@ -181,16 +182,17 @@ If Docker Desktop is not running, the Docker Manager shows a clear unavailable s
 
 ---
 
-## AI API Configuration
+## AI API Configuration (NVIDIA)
 
-CódigoFlow uses an OpenAI-compatible chat-completions API. You can use:
+CódigoFlow prefers the **NVIDIA NIM** OpenAI-compatible API:
 
-- **OpenAI** — `AI_BASE_URL=https://api.openai.com/v1`
-- **Groq** — `AI_BASE_URL=https://api.groq.com/openai/v1`
-- **Ollama (local)** — `AI_BASE_URL=http://localhost:11434/v1`
-- Any other OpenAI-compatible provider
+```env
+NVIDIA_API_KEY=...
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+NVIDIA_MODEL=qwen/qwen2.5-coder-32b-instruct
+```
 
-Set `AI_API_KEY`, `AI_BASE_URL`, and `AI_MODEL` in `server/.env`. The key is **never** sent to the browser.
+`AI_API_KEY` remains a fallback when `NVIDIA_API_KEY` is unset. Keys stay in `server/.env` only — never in Vite/`VITE_*` variables. See `docs/nvidia-ai-setup.md`.
 
 ---
 
@@ -279,6 +281,18 @@ Nagios ──── Verify Application Health
 
 ---
 
+## Documentation
+
+- `docs/backend-architecture.md`
+- `docs/api-reference.md`
+- `docs/database-schema.md`
+- `docs/nvidia-ai-setup.md`
+- `docs/git-integration.md`
+- `docs/docker-integration.md`
+- `docs/development-setup.md`
+
+---
+
 ## Troubleshooting
 
 | Issue | Solution |
@@ -288,6 +302,6 @@ Nagios ──── Verify Application Health
 | Frontend shows offline | Confirm backend is running; check browser console |
 | Git ops fail | Ensure Git is in PATH: `git --version` |
 | Docker shows unavailable | Start Docker Desktop and click Refresh |
-| AI returns 503 | Set `AI_API_KEY` in `server/.env` |
+| AI returns 503 | Set `NVIDIA_API_KEY` in `server/.env` |
 | GitHub rate limit | Add `GITHUB_TOKEN` to `server/.env` |
 | Database locked error | Only one server instance should run at a time |

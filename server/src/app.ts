@@ -16,7 +16,6 @@ import {
   isGitHubConfigured,
   getAIProviderLabel,
 } from './config';
-import { logger } from './utils/logger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 

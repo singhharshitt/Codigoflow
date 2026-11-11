@@ -74,7 +74,7 @@ export async function generateCommitMessages(diff: string): Promise<string[]> {
 
   return text
     .split('\n')
-    .map((l) => l.replace(/^[\d.\-\*]+\s*/, '').trim())
+    .map((l) => l.replace(/^[\d.\-*]+\s*/, '').trim())
     .filter((l) => l.length > 0)
     .slice(0, 3);
 }

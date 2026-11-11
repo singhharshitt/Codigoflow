@@ -204,7 +204,7 @@ export async function buildImage(input: {
   }
 
   const tag = input.tag || `codigoflow/${repo.name.toLowerCase()}:latest`;
-  if (!/^[a-z0-9._\/:-]+$/i.test(tag)) {
+  if (!/^[a-z0-9._/:-]+$/i.test(tag)) {
     throw createError('Invalid image tag', 400, 'INVALID_TAG');
   }
 
