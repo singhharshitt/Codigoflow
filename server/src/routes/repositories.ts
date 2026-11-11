@@ -15,6 +15,7 @@ import {
   pushChanges,
   checkoutBranch,
   cloneRepository,
+  inspectLocalRepository,
 } from '../services/repositoryService';
 
 const router = Router();
@@ -55,6 +56,20 @@ router.post('/clone', async (req: Request, res: Response, next: NextFunction) =>
     const body = CloneSchema.parse(req.body);
     const repo = await cloneRepository(body);
     res.status(201).json({ success: true, data: repo, message: 'Repository cloned and registered' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const InspectSchema = z.object({
+  path: z.string().min(1),
+});
+
+router.post('/inspect', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const body = InspectSchema.parse(req.body);
+    const data = await inspectLocalRepository(body.path);
+    res.json({ success: true, data });
   } catch (err) {
     next(err);
   }

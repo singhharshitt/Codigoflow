@@ -18,11 +18,34 @@ export const healthApi = {
   get: () => apiRequest<HealthStatus>('/health'),
 };
 
+export type LocalRepoInspect = {
+  path: string;
+  exists: boolean;
+  isGit: boolean;
+  alreadyRegistered: boolean;
+  registeredId?: string;
+  nameHint: string;
+  branch?: string;
+  remoteUrl?: string;
+  status?: { staged: number; unstaged: number; untracked: number };
+};
+
 export const repositoriesApi = {
   list: () => apiRequest<Repository[]>('/repositories'),
   get: (id: string) => apiRequest<Repository>(`/repositories/${id}`),
   register: (body: { path: string; name?: string; description?: string }) =>
     apiRequest<Repository>('/repositories', { method: 'POST', data: body }),
+  clone: (body: { url: string; destination: string; name?: string; description?: string }) =>
+    apiRequest<Repository>('/repositories/clone', {
+      method: 'POST',
+      data: body,
+      timeout: 180_000,
+    }),
+  inspect: (path: string) =>
+    apiRequest<LocalRepoInspect>('/repositories/inspect', {
+      method: 'POST',
+      data: { path },
+    }),
   remove: (id: string) => apiRequest<void>(`/repositories/${id}`, { method: 'DELETE' }),
   status: (id: string) => apiRequest<RepoStatus>(`/repositories/${id}/status`),
   branches: (id: string) => apiRequest<BranchInfo[]>(`/repositories/${id}/branches`),

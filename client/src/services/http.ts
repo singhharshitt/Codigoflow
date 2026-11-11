@@ -31,7 +31,12 @@ export class ApiClientError extends Error {
 
 export async function apiRequest<T>(
   path: string,
-  options?: { method?: string; data?: unknown; params?: Record<string, unknown> },
+  options?: {
+    method?: string;
+    data?: unknown;
+    params?: Record<string, unknown>;
+    timeout?: number;
+  },
 ): Promise<ApiResponse<T>> {
   try {
     const res = await http.request<ApiResponse<T>>({
@@ -39,6 +44,7 @@ export async function apiRequest<T>(
       method: options?.method ?? 'GET',
       data: options?.data,
       params: options?.params,
+      timeout: options?.timeout,
     });
     return res.data;
   } catch (err) {
