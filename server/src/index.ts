@@ -4,26 +4,27 @@ import { createApp } from './app';
 import { logger } from './utils/logger';
 
 async function main() {
-  // Initialize database first
   initDatabase();
 
   const { httpServer } = createApp();
+  const port = parseInt(config.PORT, 10);
 
-  httpServer.listen(parseInt(config.PORT, 10), config.HOST, () => {
-    logger.info(
-      `🚀 CódigoFlow server running at http://${config.HOST}:${config.PORT}`,
-    );
-    logger.info(`   Environment : ${config.NODE_ENV}`);
-    logger.info(`   CORS origin  : ${config.CLIENT_ORIGIN}`);
+  httpServer.listen(port, config.HOST, () => {
+    logger.info(`CódigoFlow server running at http://${config.HOST}:${port}`);
+    logger.info(`Environment : ${config.NODE_ENV}`);
+    logger.info(`CORS origin : ${config.CLIENT_ORIGIN}`);
   });
 
-  // Graceful shutdown
+  let shuttingDown = false;
   const shutdown = (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     logger.info({ signal }, 'Shutting down...');
     httpServer.close(() => {
       closeDatabase();
       process.exit(0);
     });
+    setTimeout(() => process.exit(1), 10_000).unref();
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));

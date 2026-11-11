@@ -9,6 +9,7 @@ import {
   hasSensitiveFiles,
 } from '../integrations/git';
 import { logger } from '../utils/logger';
+import { asRow, asRows } from '../utils/dbCast';
 import path from 'path';
 
 export interface Repository {
@@ -67,9 +68,9 @@ export async function registerRepository(input: {
   const db = getDb();
 
   // Check for duplicate
-  const existing = db
-    .prepare('SELECT * FROM repositories WHERE path = ?')
-    .get(absPath) as Repository | undefined;
+  const existing = asRow<Repository | undefined>(
+    db.prepare('SELECT * FROM repositories WHERE path = ?').get(absPath),
+  );
   if (existing) {
     return existing;
   }
@@ -108,19 +109,21 @@ export async function registerRepository(input: {
   `).run(id, name, absPath, input.description ?? null, remoteUrl ?? null, githubOwner ?? null, githubRepo ?? null, now, now);
 
   logger.info({ id, name, path: absPath }, 'Repository registered');
-  return db.prepare('SELECT * FROM repositories WHERE id = ?').get(id) as Repository;
+  return asRow<Repository>(db.prepare('SELECT * FROM repositories WHERE id = ?').get(id));
 }
 
 export function listRepositories(): Repository[] {
   const db = getDb();
-  return db.prepare('SELECT * FROM repositories ORDER BY updated_at DESC').all() as Repository[];
+  return asRows<Repository>(
+    db.prepare('SELECT * FROM repositories ORDER BY updated_at DESC').all(),
+  );
 }
 
 export function getRepository(id: string): Repository {
   const db = getDb();
-  const repo = db.prepare('SELECT * FROM repositories WHERE id = ?').get(id) as
-    | Repository
-    | undefined;
+  const repo = asRow<Repository | undefined>(
+    db.prepare('SELECT * FROM repositories WHERE id = ?').get(id),
+  );
   if (!repo) throw createError(`Repository ${id} not found`, 404, 'REPO_NOT_FOUND');
   return repo;
 }

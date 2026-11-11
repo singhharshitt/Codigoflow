@@ -6,7 +6,16 @@ import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
 import rateLimit from 'express-rate-limit';
 
-import { config } from './config';
+import {
+  config,
+  APP_VERSION,
+  RATE_LIMIT_MAX,
+  RATE_LIMIT_WINDOW_MS,
+  REQUEST_JSON_LIMIT,
+  isAIConfigured,
+  isGitHubConfigured,
+  getAIProviderLabel,
+} from './config';
 import { logger } from './utils/logger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
@@ -18,13 +27,11 @@ import githubRouter from './routes/github';
 import jobsRouter from './routes/jobs';
 
 import { getDockerStatus } from './integrations/docker';
-import { isAIConfigured, isGitHubConfigured } from './config';
 
 export function createApp() {
   const app = express();
   const httpServer = createServer(app);
 
-  // Socket.IO for live operation logs
   const io = new SocketServer(httpServer, {
     cors: { origin: config.CLIENT_ORIGIN, credentials: true },
   });
@@ -36,10 +43,8 @@ export function createApp() {
     });
   });
 
-  // Attach io to app so routes can emit events
   app.set('io', io);
 
-  // ── Security & middleware ────────────────────────────────────────────────
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(
     cors({
@@ -49,30 +54,40 @@ export function createApp() {
     }),
   );
   app.use(compression());
-  app.use(express.json({ limit: '2mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+  app.use(express.json({ limit: REQUEST_JSON_LIMIT }));
+  app.use(express.urlencoded({ extended: true, limit: REQUEST_JSON_LIMIT }));
   app.use(requestLogger);
 
   const limiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 200,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    max: RATE_LIMIT_MAX,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { success: false, error: { code: 'RATE_LIMIT', message: 'Too many requests' } },
+    message: {
+      success: false,
+      error: { code: 'RATE_LIMIT', message: 'Too many requests' },
+    },
   });
   app.use('/api', limiter);
 
-  // ── Health endpoint ──────────────────────────────────────────────────────
   app.get('/api/health', async (_req, res) => {
-    const dockerStatus = await getDockerStatus().catch(() => ({ available: false }));
+    const dockerStatus = await getDockerStatus().catch(() => ({
+      available: false,
+      error: 'Unable to probe Docker',
+    }));
+
     res.json({
       success: true,
       data: {
         status: 'ok',
-        version: '1.0.0',
+        version: APP_VERSION,
         timestamp: new Date().toISOString(),
         integrations: {
-          ai: { configured: isAIConfigured() },
+          ai: {
+            configured: isAIConfigured(),
+            provider: getAIProviderLabel(),
+            // Never expose keys
+          },
           github: { configured: isGitHubConfigured() },
           docker: dockerStatus,
         },
@@ -80,19 +95,16 @@ export function createApp() {
     });
   });
 
-  // ── Routes ───────────────────────────────────────────────────────────────
   app.use('/api/repositories', repositoriesRouter);
   app.use('/api/ai', aiRouter);
   app.use('/api/docker', dockerRouter);
   app.use('/api/github', githubRouter);
   app.use('/api/jobs', jobsRouter);
-  // Alias for history
-  app.use('/api/history', (_req, res, next) => {
-    _req.url = '/history';
-    jobsRouter(_req, res, next);
+  app.use('/api/history', (req, res, next) => {
+    req.url = '/history';
+    jobsRouter(req, res, next);
   });
 
-  // ── Error handling ───────────────────────────────────────────────────────
   app.use(notFoundHandler);
   app.use(errorHandler);
 
