@@ -5,6 +5,7 @@ import { devopsApi } from '../../services/devopsApi';
 import { jobsApi } from '../../services/api';
 import type { Job } from '../../types';
 import { PageBackground } from '../../components/shared';
+import { OperatorAuthPanel } from '../../components/devops/OperatorAuthPanel';
 import { PageHeader, Button, Badge, Alert, LoadingSpinner, Card } from '../../components/ui';
 
 type ToolRow = {
@@ -64,6 +65,8 @@ export function DevOpsOverviewPage() {
         </div>
       ) : (
         <div className="relative z-10 space-y-4">
+          <OperatorAuthPanel />
+
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             {[
               { to: '/devops/terraform', label: 'Terraform', icon: Cloud },
@@ -105,7 +108,7 @@ export function DevOpsOverviewPage() {
                     </div>
                   </div>
                   <Badge variant={t.available ? 'success' : 'warning'}>
-                    {t.available ? 'available' : 'missing'}
+                    {t.available ? 'installed' : 'not installed'}
                   </Badge>
                 </div>
               ))}

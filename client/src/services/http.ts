@@ -3,17 +3,17 @@ import type { ApiResponse } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
+/**
+ * Browser API client.
+ * Privileged DevOps mutations use HttpOnly session cookies (POST /api/auth/login).
+ * Never embed DEVOPS_API_TOKEN in Vite env — it would ship in the JS bundle.
+ */
 export const http = axios.create({
   baseURL: BASE_URL,
   timeout: 30_000,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 });
-
-// Optional DevOps mutation token (must match server DEVOPS_API_TOKEN when configured)
-const devopsToken = import.meta.env.VITE_DEVOPS_API_TOKEN as string | undefined;
-if (devopsToken) {
-  http.defaults.headers.common.Authorization = `Bearer ${devopsToken}`;
-}
 
 export class ApiClientError extends Error {
   code: string;

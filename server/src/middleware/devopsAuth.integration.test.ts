@@ -61,5 +61,28 @@ describe('privileged DevOps auth integration', () => {
     const run = await request(app).post(`/api/workflows/${id}/run`);
     expect(run.status).toBe(401);
   });
+
+  it(
+    'issues session cookie via /api/auth/login and authorizes mutations',
+    async () => {
+      const login = await request(app)
+        .post('/api/auth/login')
+        .send({ token: 'phase10-test-token' });
+      expect(login.status).toBe(200);
+      expect(login.headers['set-cookie']).toBeDefined();
+      const cookie = Array.isArray(login.headers['set-cookie'])
+        ? login.headers['set-cookie'][0]
+        : login.headers['set-cookie'];
+
+      // Use an approval-gated path that fails fast after auth (no tool binary wait).
+      const apply = await request(app)
+        .post('/api/devops/terraform/apply')
+        .set('Cookie', cookie)
+        .send({ planId: '00000000-0000-0000-0000-000000000000', approve: false });
+      expect(apply.status).not.toBe(401);
+      expect([400, 404]).toContain(apply.status);
+    },
+    15_000,
+  );
 });
 

@@ -27,6 +27,7 @@ import jobsRouter from './routes/jobs';
 import workflowsRouter from './routes/workflows';
 import integrationsRouter from './routes/integrations';
 import devopsRouter from './routes/devops';
+import authRouter from './routes/auth';
 import { registerSockets } from './sockets';
 
 import { getDockerStatus } from './integrations/docker';
@@ -66,6 +67,19 @@ export function createApp() {
     },
   });
   app.use('/api', limiter);
+
+  const authLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      success: false,
+      error: { code: 'RATE_LIMIT', message: 'Too many login attempts' },
+    },
+  });
+  app.use('/api/auth/login', authLoginLimiter);
+  app.use('/api/auth', authRouter);
 
   app.get('/api/health', async (_req, res) => {
     const dockerStatus = await getDockerStatus().catch(() => ({

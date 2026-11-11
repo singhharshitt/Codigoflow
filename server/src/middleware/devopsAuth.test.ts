@@ -1,10 +1,13 @@
 import type { Request, Response } from 'express';
 import { requireDevOpsMutationAuth, isLoopbackAddress } from './devopsAuth';
+import { COOKIE_NAME, createSessionToken } from '../auth/session';
 
 function mockReq(overrides: Partial<Request> & { headers?: Record<string, string>; ip?: string }): Request {
   const headers = overrides.headers ?? {};
   return {
     header: (name: string) => headers[name.toLowerCase()] ?? headers[name] ?? undefined,
+    path: '/terraform/apply',
+    method: 'POST',
     socket: { remoteAddress: overrides.ip ?? '127.0.0.1' },
     ...overrides,
   } as unknown as Request;
@@ -57,6 +60,29 @@ describe('devopsAuth', () => {
       mockReq({
         ip: '127.0.0.1',
         headers: { authorization: 'Bearer secret-token-value' },
+      }),
+      {} as Response,
+      next,
+    );
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('allows HttpOnly session cookie for operator role', () => {
+    process.env.DEVOPS_REQUIRE_LOOPBACK = 'true';
+    process.env.DEVOPS_API_TOKEN = 'secret-token-value';
+    process.env.SESSION_SECRET = 'secret-token-value';
+    process.env.DEVOPS_ENFORCE_TOKEN = 'true';
+    process.env.CLIENT_ORIGIN = 'http://localhost:5173';
+
+    const token = createSessionToken('operator');
+    const next = jest.fn();
+    requireDevOpsMutationAuth(
+      mockReq({
+        ip: '127.0.0.1',
+        headers: {
+          cookie: `${COOKIE_NAME}=${encodeURIComponent(token)}`,
+          origin: 'http://localhost:5173',
+        },
       }),
       {} as Response,
       next,
