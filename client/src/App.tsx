@@ -7,11 +7,9 @@ import { GitStudioPage } from './pages/GitStudioPage';
 import { DockerManagerPage } from './pages/DockerManagerPage';
 import { AICopilotPage } from './pages/AICopilotPage';
 import { ContributionExplorerPage } from './pages/ContributionExplorerPage';
-import {
-  ExecutionHistoryPage,
-  WorkflowBuilderPage,
-  SettingsPage,
-} from './pages/MiscPages';
+import { ExecutionHistoryPage } from './pages/ExecutionHistoryPage';
+import { WorkflowBuilderPage } from './pages/WorkflowBuilderPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { HelpPage } from './pages/HelpPage';
 import { useAppStore } from './stores/appStore';
 import { useRepoStore } from './stores/repoStore';
