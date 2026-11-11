@@ -4,11 +4,13 @@ import {
   generateCommitMessages,
   explainError,
   analyzeDockerLogs,
+  analyzeExecutionFailure,
   askAssistant,
   getAIStatus,
   checkConnection,
 } from '../integrations/ai';
 import { getContainerLogs } from '../integrations/docker';
+import { getJob, listJobLogs } from '../jobs/jobService';
 
 const router = Router();
 
@@ -116,5 +118,43 @@ async function handleChat(req: Request, res: Response, next: NextFunction) {
 
 router.post('/ask', handleChat);
 router.post('/chat', handleChat);
+
+const AnalyzeJobSchema = z.object({
+  jobId: z.string().uuid(),
+});
+
+/**
+ * Grounded troubleshooting: uses persisted job metadata + job_logs only.
+ * Does not execute infrastructure commands.
+ */
+router.post('/analyze-job', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { jobId } = AnalyzeJobSchema.parse(req.body);
+    const job = getJob(jobId);
+    const logs = listJobLogs(jobId)
+      .map((l) => `[${l.level}] ${l.message}`)
+      .join('\n');
+    const result = await analyzeExecutionFailure({
+      operation: job.operation,
+      status: job.status,
+      summary: job.summary,
+      errorMessage: job.error_message,
+      logs,
+    });
+    res.json({
+      success: true,
+      data: {
+        jobId: job.id,
+        operation: job.operation,
+        status: job.status,
+        analysis: result,
+        disclaimer:
+          'Analysis is advisory. Destructive remediation must go through existing approval-gated executors.',
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default router;

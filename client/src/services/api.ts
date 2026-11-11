@@ -80,6 +80,20 @@ export const repositoriesApi = {
       data: { path },
     }),
   remove: (id: string) => apiRequest<void>(`/repositories/${id}`, { method: 'DELETE' }),
+  analyze: (id: string) => apiRequest<Record<string, unknown>>(`/repositories/${id}/analyze`),
+  deployProposal: (id: string) =>
+    apiRequest<{
+      analysis: Record<string, unknown>;
+      proposal: {
+        name: string;
+        description?: string;
+        reviewRequired: boolean;
+        autoExecute: boolean;
+        notes: string[];
+        nodes: unknown[];
+        edges: unknown[];
+      };
+    }>(`/repositories/${id}/deploy-proposal`, { method: 'POST' }),
   status: (id: string) => apiRequest<RepoStatus>(`/repositories/${id}/status`),
   branches: (id: string) => apiRequest<BranchInfo[]>(`/repositories/${id}/branches`),
   commits: (id: string, limit = 30) =>
@@ -146,6 +160,21 @@ export const jobsApi = {
   list: (limit = 50) => apiRequest<Job[]>('/jobs', { params: { limit } }),
   history: (limit = 50) => apiRequest<Job[]>('/history', { params: { limit } }),
   get: (id: string) => apiRequest<Job>(`/jobs/${id}`),
+  logs: (id: string) =>
+    apiRequest<Array<{ id: string; timestamp: number; level: string; message: string }>>(
+      `/jobs/${id}/logs`,
+    ),
+};
+
+export const aiJobApi = {
+  analyzeJob: (jobId: string) =>
+    apiRequest<{
+      jobId: string;
+      operation: string;
+      status: string;
+      analysis: Record<string, unknown>;
+      disclaimer: string;
+    }>('/ai/analyze-job', { method: 'POST', data: { jobId }, timeout: 60_000 }),
 };
 
 // Named service aliases for feature modules

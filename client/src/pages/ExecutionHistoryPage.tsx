@@ -19,7 +19,9 @@ import {
   Input,
 } from '../components/ui';
 import { PageBackground } from '../components/shared';
+import { toast } from 'sonner';
 import { useHistoryStore, type JobFilter } from '../stores/historyStore';
+import { aiJobApi, jobsApi } from '../services/api';
 import type { Job } from '../types';
 import clsx from 'clsx';
 
@@ -239,6 +241,40 @@ function formatDuration(job: Job) {
 }
 
 function JobDetails({ job }: { job: Job }) {
+  const [logs, setLogs] = useState<Array<{ id: string; timestamp: number; level: string; message: string }>>(
+    [],
+  );
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiResult, setAiResult] = useState<Record<string, unknown> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAiResult(null);
+    setLogsLoading(true);
+    void jobsApi.logs(job.id).then((res) => {
+      if (cancelled) return;
+      setLogsLoading(false);
+      if (res.success && res.data) setLogs(res.data);
+      else setLogs([]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [job.id]);
+
+  async function runAiAnalysis() {
+    setAiBusy(true);
+    const res = await aiJobApi.analyzeJob(job.id);
+    setAiBusy(false);
+    if (!res.success || !res.data) {
+      toast.error(res.error?.message ?? 'AI analysis failed');
+      return;
+    }
+    setAiResult(res.data.analysis);
+    toast.success('Analysis ready (advisory only)');
+  }
+
   return (
     <div className="space-y-3 text-sm">
       <div>
@@ -273,6 +309,38 @@ function JobDetails({ job }: { job: Job }) {
           </div>
         </div>
       </div>
+
+      <div>
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <div className="text-[10px] uppercase tracking-wider text-cf-faint">Persisted logs</div>
+          {(job.status === 'failed' || job.status === 'cancelled') && (
+            <Button size="sm" variant="secondary" loading={aiBusy} onClick={() => void runAiAnalysis()}>
+              AI diagnose
+            </Button>
+          )}
+        </div>
+        {logsLoading ? (
+          <LoadingSpinner size="sm" />
+        ) : logs.length === 0 ? (
+          <p className="text-xs text-cf-faint">No log lines persisted for this job.</p>
+        ) : (
+          <pre className="code-block text-[10px] max-h-56 overflow-auto whitespace-pre-wrap">
+            {logs.map((l) => `${new Date(l.timestamp * 1000).toISOString()} [${l.level}] ${l.message}`).join('\n')}
+          </pre>
+        )}
+      </div>
+
+      {aiResult && (
+        <Alert variant="info">
+          <div className="space-y-1 text-xs">
+            <div className="font-medium text-cf-text">{String(aiResult.summary ?? '')}</div>
+            <div>Likely cause: {String(aiResult.likelyCause ?? '—')}</div>
+            <div>Next: {String(aiResult.suggestedNextStep ?? '—')}</div>
+            <div className="text-cf-faint">Advisory only — no infrastructure commands were executed.</div>
+          </div>
+        </Alert>
+      )}
+
       {job.log_ref && (
         <div>
           <div className="text-[10px] uppercase tracking-wider text-cf-faint mb-1">Log reference</div>
