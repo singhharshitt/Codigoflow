@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Container, RefreshCw, Play, Square, ScrollText, Server } from 'lucide-react';
 import { dockerApi } from '../services/api';
-import { useAppStore } from '../stores/appStore';
 import { LoadingSpinner, EmptyState, Alert, PageHeader, StatCard } from '../components/ui';
 import type { ContainerInfo, ImageInfo, DockerStatus } from '../types';
 
 export function DockerManagerPage() {
-  const { health } = useAppStore();
   const [dockerStatus, setDockerStatus] = useState<DockerStatus | null>(null);
   const [containers, setContainers] = useState<ContainerInfo[]>([]);
   const [images, setImages] = useState<ImageInfo[]>([]);

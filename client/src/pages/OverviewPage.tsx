@@ -30,11 +30,13 @@ export function OverviewPage() {
   useEffect(() => {
     fetchHealth();
     fetchRepositories();
-  }, []);
+  }, [fetchHealth, fetchRepositories]);
 
   useEffect(() => {
     if (!selectedId) { setLoading(false); return; }
-    loadData();
+    void loadData();
+    // intentionally reloads when repository selection changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
   async function loadData(isRefresh = false) {

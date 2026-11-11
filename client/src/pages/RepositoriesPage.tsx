@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, FolderOpen, GitBranch, RefreshCw, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, FolderOpen, GitBranch, ExternalLink } from 'lucide-react';
 import { useRepoStore } from '../stores/repoStore';
 import { LoadingSpinner, EmptyState, Alert, PageHeader } from '../components/ui';
 import type { Repository } from '../types';
@@ -14,7 +14,7 @@ export function RepositoriesPage() {
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => { fetchRepositories(); }, []);
+  useEffect(() => { fetchRepositories(); }, [fetchRepositories]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

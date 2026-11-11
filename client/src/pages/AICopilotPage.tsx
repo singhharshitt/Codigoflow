@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Bot, Sparkles, AlertCircle, Send, Loader2, CheckCircle } from 'lucide-react';
+import { Bot, Sparkles, Send, Loader2, CheckCircle } from 'lucide-react';
 import { aiApi } from '../services/api';
-import { useAppStore } from '../stores/appStore';
 import { Alert, PageHeader } from '../components/ui';
 import type { AIStatus } from '../types';
 
@@ -15,7 +14,6 @@ const TOOLS: { id: AITool; label: string; icon: string; desc: string; placeholde
 ];
 
 export function AICopilotPage() {
-  const { health } = useAppStore();
   const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
   const [activeTool, setActiveTool] = useState<AITool>('ask');
   const [input, setInput] = useState('');
@@ -93,7 +91,6 @@ export function AICopilotPage() {
         ))}
       </div>
 
-      {/* Input area */}
       <div className="card space-y-4">
         <div className="flex items-center gap-2">
           <Bot className="w-4 h-4 text-violet-400" />
@@ -139,8 +136,7 @@ export function AICopilotPage() {
         </button>
       </div>
 
-      {/* Results */}
-      {result && (
+      {result != null ? (
         <div className="card animate-fade-in">
           <div className="flex items-center gap-2 mb-4">
             <Sparkles className="w-4 h-4 text-violet-400" />
@@ -148,7 +144,7 @@ export function AICopilotPage() {
           </div>
           <AIResult tool={activeTool} data={result} />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

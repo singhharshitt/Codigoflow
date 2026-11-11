@@ -12,6 +12,7 @@ import {
   WorkflowBuilderPage,
   SettingsPage,
 } from './pages/MiscPages';
+import { HelpPage } from './pages/HelpPage';
 import { useAppStore } from './stores/appStore';
 import { useRepoStore } from './stores/repoStore';
 
@@ -22,10 +23,9 @@ export default function App() {
   useEffect(() => {
     fetchHealth();
     fetchRepositories();
-    // Poll health every 30 seconds
     const interval = setInterval(fetchHealth, 30_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchHealth, fetchRepositories]);
 
   return (
     <BrowserRouter>
@@ -40,6 +40,7 @@ export default function App() {
           <Route path="workflow" element={<WorkflowBuilderPage />} />
           <Route path="history" element={<ExecutionHistoryPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="help" element={<HelpPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

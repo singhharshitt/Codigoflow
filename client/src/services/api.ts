@@ -1,83 +1,107 @@
-import type { ApiResponse } from '../types';
+import { apiRequest } from './http';
+import type {
+  AIStatus,
+  BranchInfo,
+  CommitEntry,
+  ContainerInfo,
+  DockerStatus,
+  GitHubCommit,
+  GitHubContributor,
+  HealthStatus,
+  ImageInfo,
+  Job,
+  Repository,
+  RepoStatus,
+} from '../types';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
-
-async function request<T>(
-  path: string,
-  options?: RequestInit,
-): Promise<ApiResponse<T>> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    ...options,
-  });
-
-  const data = await res.json().catch(() => ({
-    success: false,
-    error: { code: 'PARSE_ERROR', message: 'Failed to parse server response' },
-  }));
-
-  return data as ApiResponse<T>;
-}
-
-// ── Health ────────────────────────────────────────────────────────────────────
 export const healthApi = {
-  get: () => request('/health'),
+  get: () => apiRequest<HealthStatus>('/health'),
 };
 
-// ── Repositories ──────────────────────────────────────────────────────────────
 export const repositoriesApi = {
-  list: () => request('/repositories'),
-  get: (id: string) => request(`/repositories/${id}`),
+  list: () => apiRequest<Repository[]>('/repositories'),
+  get: (id: string) => apiRequest<Repository>(`/repositories/${id}`),
   register: (body: { path: string; name?: string; description?: string }) =>
-    request('/repositories', { method: 'POST', body: JSON.stringify(body) }),
-  remove: (id: string) => request(`/repositories/${id}`, { method: 'DELETE' }),
-  status: (id: string) => request(`/repositories/${id}/status`),
-  branches: (id: string) => request(`/repositories/${id}/branches`),
-  commits: (id: string, limit = 30) => request(`/repositories/${id}/commits?limit=${limit}`),
+    apiRequest<Repository>('/repositories', { method: 'POST', data: body }),
+  remove: (id: string) => apiRequest<void>(`/repositories/${id}`, { method: 'DELETE' }),
+  status: (id: string) => apiRequest<RepoStatus>(`/repositories/${id}/status`),
+  branches: (id: string) => apiRequest<BranchInfo[]>(`/repositories/${id}/branches`),
+  commits: (id: string, limit = 30) =>
+    apiRequest<CommitEntry[]>(`/repositories/${id}/commits`, { params: { limit } }),
   diff: (id: string, file?: string) =>
-    request(`/repositories/${id}/diff${file ? `?file=${encodeURIComponent(file)}` : ''}`),
+    apiRequest<{ diff: string }>(`/repositories/${id}/diff`, {
+      params: file ? { file } : undefined,
+    }),
   stage: (id: string, files: string[]) =>
-    request(`/repositories/${id}/stage`, { method: 'POST', body: JSON.stringify({ files }) }),
+    apiRequest(`/repositories/${id}/stage`, { method: 'POST', data: { files } }),
+  unstage: (id: string, files: string[]) =>
+    apiRequest(`/repositories/${id}/unstage`, { method: 'POST', data: { files } }),
   commit: (id: string, message: string) =>
-    request(`/repositories/${id}/commit`, { method: 'POST', body: JSON.stringify({ message }) }),
+    apiRequest(`/repositories/${id}/commit`, { method: 'POST', data: { message } }),
   push: (id: string, remote = 'origin', branch?: string) =>
-    request(`/repositories/${id}/push`, { method: 'POST', body: JSON.stringify({ remote, branch }) }),
+    apiRequest(`/repositories/${id}/push`, { method: 'POST', data: { remote, branch } }),
+  checkout: (id: string, branch: string) =>
+    apiRequest(`/repositories/${id}/checkout`, { method: 'POST', data: { branch } }),
 };
 
-// ── AI ────────────────────────────────────────────────────────────────────────
 export const aiApi = {
-  status: () => request('/ai/status'),
+  status: () => apiRequest<AIStatus>('/ai/status'),
   commitMessages: (diff: string) =>
-    request('/ai/commit-messages', { method: 'POST', body: JSON.stringify({ diff }) }),
+    apiRequest<{ messages: string[] }>('/ai/commit-messages', { method: 'POST', data: { diff } }),
   explainError: (error: string) =>
-    request('/ai/explain-error', { method: 'POST', body: JSON.stringify({ error }) }),
+    apiRequest<{ explanation: string; suggestions: string[] }>('/ai/explain-error', {
+      method: 'POST',
+      data: { error },
+    }),
   analyzeDockerLogs: (logs: string) =>
-    request('/ai/analyze-docker-logs', { method: 'POST', body: JSON.stringify({ logs }) }),
+    apiRequest<{ summary: string; cause?: string; suggestions?: string[] }>(
+      '/ai/analyze-docker-logs',
+      { method: 'POST', data: { logs } },
+    ),
   ask: (question: string, codeContext?: string) =>
-    request('/ai/ask', { method: 'POST', body: JSON.stringify({ question, codeContext }) }),
+    apiRequest<{ answer: string }>('/ai/ask', {
+      method: 'POST',
+      data: { question, codeContext },
+    }),
 };
 
-// ── Docker ────────────────────────────────────────────────────────────────────
 export const dockerApi = {
-  status: () => request('/docker/status'),
-  containers: (all = true) => request(`/docker/containers?all=${all}`),
-  images: () => request('/docker/images'),
-  logs: (id: string, tail = 100) => request(`/docker/containers/${id}/logs?tail=${tail}`),
-  start: (id: string) => request(`/docker/containers/${id}/start`, { method: 'POST' }),
-  stop: (id: string) => request(`/docker/containers/${id}/stop`, { method: 'POST' }),
+  status: () => apiRequest<DockerStatus>('/docker/status'),
+  containers: (all = true) =>
+    apiRequest<ContainerInfo[]>('/docker/containers', { params: { all } }),
+  images: () => apiRequest<ImageInfo[]>('/docker/images'),
+  logs: (id: string, tail = 100) =>
+    apiRequest<{ logs: string }>(`/docker/containers/${id}/logs`, { params: { tail } }),
+  start: (id: string) => apiRequest(`/docker/containers/${id}/start`, { method: 'POST' }),
+  stop: (id: string) => apiRequest(`/docker/containers/${id}/stop`, { method: 'POST' }),
+  restart: (id: string) => apiRequest(`/docker/containers/${id}/restart`, { method: 'POST' }),
 };
 
-// ── GitHub ────────────────────────────────────────────────────────────────────
 export const githubApi = {
-  repo: (url: string) => request(`/github/repositories?url=${encodeURIComponent(url)}`),
+  repo: (url: string) =>
+    apiRequest<Record<string, unknown>>('/github/repositories', { params: { url } }),
   commits: (owner: string, repo: string) =>
-    request(`/github/repositories/${owner}/${repo}/commits`),
+    apiRequest<GitHubCommit[]>(`/github/repositories/${owner}/${repo}/commits`),
   contributors: (owner: string, repo: string) =>
-    request(`/github/repositories/${owner}/${repo}/contributors`),
+    apiRequest<GitHubContributor[]>(`/github/repositories/${owner}/${repo}/contributors`),
 };
 
-// ── Jobs ──────────────────────────────────────────────────────────────────────
 export const jobsApi = {
-  list: (limit = 50) => request(`/jobs?limit=${limit}`),
-  history: (limit = 50) => request(`/history?limit=${limit}`),
+  list: (limit = 50) => apiRequest<Job[]>('/jobs', { params: { limit } }),
+  history: (limit = 50) => apiRequest<Job[]>('/history', { params: { limit } }),
+  get: (id: string) => apiRequest<Job>(`/jobs/${id}`),
+};
+
+// Named service aliases for feature modules
+export const repositoryService = repositoriesApi;
+export const gitService = repositoriesApi;
+export const dockerService = dockerApi;
+export const aiService = aiApi;
+export const githubService = githubApi;
+export const historyService = jobsApi;
+export const integrationService = healthApi;
+export const workflowService = {
+  list: () => apiRequest('/workflows'),
+  save: (workflow: unknown) => apiRequest('/workflows', { method: 'POST', data: workflow }),
+  get: (id: string) => apiRequest(`/workflows/${id}`),
 };
