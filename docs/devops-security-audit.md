@@ -4,7 +4,7 @@
 
 | ID | Severity | Finding | Status |
 |---|---|---|---|
-| SEC-01 | High (mitigated) | Unauthenticated DevOps APIs can mutate infrastructure if exposed | Loopback restriction + optional/required Bearer `DEVOPS_API_TOKEN` on mutations; still keep `HOST=127.0.0.1` |
+| SEC-01 | High (mitigated) | Unauthenticated DevOps APIs can mutate infrastructure if exposed | Loopback + HttpOnly `cf_session` (login with server token) or Bearer for CLI; keep `HOST=127.0.0.1` |
 | SEC-02 | Medium (fixed) | WSL execution used raw Windows cwd/args | Path bridge translates to `/mnt/<drive>/…` |
 | SEC-03 | Medium (fixed) | SSH used `StrictHostKeyChecking=accept-new` | Default is now `yes`; lab override via `DEVOPS_SSH_STRICT_HOST_KEY` |
 | SEC-04 | Medium (mitigated) | Terraform apply concurrency | Per project/workspace in-memory lock |
@@ -23,7 +23,7 @@
 
 ## Residual risk
 
-- Set `DEVOPS_API_TOKEN` (and matching `VITE_DEVOPS_API_TOKEN`) before any non-loopback exposure.
+- Set `DEVOPS_API_TOKEN` on the server; sign in via DevOps → Operator session. Never use `VITE_*` for this token.
 - WSL/SSH control nodes inherit OS user privileges — treat the control node as a privileged plane.
 - Sample Nagios status must not be mistaken for live monitoring evidence.
 - See `docs/devops-acceptance-report.md` for Phase 10 blocked real-infra tests.

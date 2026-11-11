@@ -31,12 +31,27 @@ npm run dev:client
 - Frontend: http://localhost:5173  
 - Backend: http://127.0.0.1:4000/api/health  
 
+## Operator authentication (DevOps)
+
+```dotenv
+# server/.env
+DEVOPS_API_TOKEN=change-me-to-a-long-random-value
+# SESSION_SECRET=optional-separate-signing-secret
+```
+
+1. Start the apps.
+2. Open **DevOps Control Center**.
+3. In **Operator session**, paste the same token once — the server sets an HttpOnly `cf_session` cookie.
+4. Do **not** put the token in `client/.env` or any `VITE_*` variable.
+
 ## Checks
 
 ```powershell
 npm run typecheck --workspace=@codigoflow/server
 npm run lint --workspace=@codigoflow/server
 npm run test --workspace=@codigoflow/server
+npm run typecheck --workspace=@codigoflow/client
+npm run lint --workspace=@codigoflow/client
 ```
 
 ## Troubleshooting

@@ -13,6 +13,7 @@ CódigoFlow is an AI-powered development automation platform that unifies Git/Gi
 | Feature | Status |
 |---|---|
 | Repository registration and management | ✅ Working |
+| Public GitHub URL import (managed clone) | ✅ Working |
 | Git status, branches, commits, diffs | ✅ Working |
 | File staging and commit with confirmation | ✅ Working |
 | AI commit message generation | ✅ (requires AI key) |
@@ -153,6 +154,10 @@ npm run dev:client
 | `NVIDIA_MODEL` | Optional | e.g. `qwen/qwen2.5-coder-32b-instruct` |
 | `AI_API_KEY` | Optional | Fallback if `NVIDIA_API_KEY` is unset |
 | `GITHUB_TOKEN` | Optional | GitHub Personal Access Token |
+| `DEVOPS_API_TOKEN` | Recommended | Privileged DevOps operator token (server-only) |
+| `SESSION_SECRET` | Optional | Cookie signing secret (defaults to `DEVOPS_API_TOKEN`) |
+| `REPOS_STORAGE_ROOT` | Optional | Managed clone root (default `./data/repos`) |
+| `GITHUB_IMPORT_MAX_MB` | Optional | Max imported repo size in MB (default 500) |
 
 ### Client (`client/.env`)
 
@@ -160,14 +165,26 @@ npm run dev:client
 |---|---|---|
 | `VITE_API_BASE_URL` | `/api` | Backend URL (use `/api` in dev, full URL in production) |
 
+**Never** put `DEVOPS_API_TOKEN` in a `VITE_*` variable. Sign in from **DevOps Control Center → Operator session**.
+
 ---
 
 ## Git Integration Setup
 
-1. Register any local Git repository from the **Repositories** page.
-2. Enter the absolute path (e.g. `D:\Projects\my-app`).
-3. The backend validates the path, confirms Git is initialized, and extracts the remote URL.
-4. Use **Git Studio** to inspect status, stage files, commit, and view diffs.
+### Import a public GitHub repository (recommended)
+
+1. Open **Repositories → Add repository → Import from GitHub**.
+2. Paste `https://github.com/owner/repo`.
+3. Preview metadata, optionally pick a branch, click **Import**.
+4. The backend shallow-clones into managed storage and registers the repo.
+
+Private repos require `GITHUB_TOKEN` / local credentials, or use **Add existing local**.
+
+### Register an existing local folder
+
+1. Enter the absolute path (e.g. `D:\Projects\my-app`).
+2. Validate path, then register.
+3. Use **Git Studio** for status, stage, commit, and diffs.
 
 **Security:** Git commands run with `child_process.spawn()` using a fixed executable and separate arguments. User input is never concatenated into shell strings.
 
@@ -210,6 +227,11 @@ The SQLite database is created automatically on first server start at the path d
 | GET | `/api/health` | Server health and integration status |
 | GET | `/api/repositories` | List registered repositories |
 | POST | `/api/repositories` | Register a repository |
+| POST | `/api/repositories/github/preview` | Preview public/private GitHub metadata |
+| POST | `/api/repositories/github/import` | Managed clone + register (public) |
+| POST | `/api/auth/login` | Create HttpOnly operator session |
+| POST | `/api/auth/logout` | Clear operator session |
+| GET | `/api/auth/status` | Session / auth mode status |
 | DELETE | `/api/repositories/:id` | Remove a repository |
 | GET | `/api/repositories/:id/status` | Git status |
 | GET | `/api/repositories/:id/branches` | Branch list |
@@ -255,10 +277,11 @@ Tests cover:
 
 - Git commands use `spawn()` with `shell: false` — no injection possible
 - Only allowlisted Git and Docker operations are permitted
-- API keys are stored only in server environment variables
-- CORS is restricted to the configured frontend origin
+- API keys and `DEVOPS_API_TOKEN` are stored only in server environment variables
+- Privileged DevOps mutations: loopback + HttpOnly session cookie (or Bearer for CLI)
+- CORS is restricted to the configured frontend origin; cookie auth validates Origin
 - Request size is capped at 2 MB
-- Rate limiting is applied to all API routes
+- Rate limiting is applied to all API routes (stricter on `/api/auth/login`)
 - Sensitive file patterns are detected before staging
 - The Docker socket is never exposed over the network
 
@@ -299,6 +322,7 @@ Nagios ──── Verify Application Health
 - `docs/lab-setup.md`
 - `docs/end-to-end-deployment.md`
 - `docs/devops-security-audit.md`
+- `docs/final-engineering-audit.md`
 
 ---
 

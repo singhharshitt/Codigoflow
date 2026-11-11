@@ -54,14 +54,14 @@ Phase 10 attempt: plan printed successfully; privileged `apt`/`sudo` could not c
 | T-PU-01 | Puppet drift / cert sign | WSL/VM | **BLOCKED** | puppet missing |
 | T-NA-01 | Live Nagios outage/recovery | Nagios Core | **BLOCKED** | nagios missing; sample status ≠ live |
 | T-WF-01 | Full TF→Ansible→Puppet→Nagios workflow | CódigoFlow | **BLOCKED** | Upstream tools missing; cannot claim E2E success |
-| T-SEC-01 | Privileged mutation protection | Code + tests | **PASS** | Loopback + optional Bearer `DEVOPS_API_TOKEN` |
+| T-SEC-01 | Privileged mutation protection | Code + tests | **PASS** | Loopback + session cookie or Bearer `DEVOPS_API_TOKEN` |
 
 ## Security improvements (Phase 10)
 
 - `requireDevOpsMutationAuth` on DevOps POST/PUT/PATCH/DELETE and workflow `/run`
 - Default loopback restriction (`DEVOPS_REQUIRE_LOOPBACK=true`)
-- Bearer token required when `DEVOPS_API_TOKEN` is set or in production
-- Frontend supports `VITE_DEVOPS_API_TOKEN`
+- Session cookie or Bearer required when `DEVOPS_API_TOKEN` is set or in production
+- Frontend must not embed `DEVOPS_API_TOKEN` (no `VITE_DEVOPS_API_TOKEN`)
 - Docs updated in `docs/devops-security-audit.md` residual risk note
 
 ## Local Terraform lab (ready after install)
