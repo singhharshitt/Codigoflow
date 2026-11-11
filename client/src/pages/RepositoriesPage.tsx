@@ -13,6 +13,8 @@ import {
   GitCommit,
   FolderGit2,
   RefreshCw,
+  Sparkles,
+  Workflow,
 } from 'lucide-react';
 import {
   Modal,
@@ -64,10 +66,41 @@ export function RepositoriesPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Repository | null>(null);
   const [removeSubmitting, setRemoveSubmitting] = useState(false);
+  const [analysisBusy, setAnalysisBusy] = useState(false);
+  const [analysis, setAnalysis] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     void fetchRepositories();
   }, [fetchRepositories]);
+
+  async function handleAnalyze(repoId: string) {
+    selectRepository(repoId);
+    setAnalysisBusy(true);
+    setAnalysis(null);
+    const res = await repositoriesApi.analyze(repoId);
+    setAnalysisBusy(false);
+    if (!res.success || !res.data) {
+      toast.error(res.error?.message ?? 'Analysis failed');
+      return;
+    }
+    setAnalysis(res.data);
+    toast.success('Repository analysed (static inspection only)');
+  }
+
+  async function handleProposeDeploy(repoId: string) {
+    selectRepository(repoId);
+    setAnalysisBusy(true);
+    const res = await repositoriesApi.deployProposal(repoId);
+    setAnalysisBusy(false);
+    if (!res.success || !res.data) {
+      toast.error(res.error?.message ?? 'Proposal failed');
+      return;
+    }
+    setAnalysis(res.data.analysis);
+    sessionStorage.setItem('cf-deploy-proposal', JSON.stringify(res.data.proposal));
+    toast.success('Deploy proposal ready — review in Workflow Builder');
+    navigate('/workflow');
+  }
 
   const filteredRepos = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -163,7 +196,7 @@ export function RepositoriesPage() {
       <div className="relative z-10">
       <PageHeader
         title="Repositories"
-        description="Clone from GitHub or register an existing local Git folder, then open Git Studio"
+        description="Import a public GitHub URL, register a local folder, analyse the stack, then propose a guided workflow"
         action={
           <>
             <Button variant="secondary" onClick={() => void fetchRepositories()} disabled={loading}>
@@ -259,11 +292,43 @@ export function RepositoriesPage() {
                     onOpenGitStudio={() => openGitStudio(repo)}
                     onRemove={() => setRemoveTarget(repo)}
                     onRefreshDetails={() => void loadRepoDetails(repo.id)}
+                    onAnalyze={() => void handleAnalyze(repo.id)}
+                    onProposeDeploy={() => void handleProposeDeploy(repo.id)}
+                    analysisBusy={analysisBusy && selectedId === repo.id}
                   />
                 );
               })}
             </tbody>
           </Table>
+        </Card>
+      )}
+
+      {analysis && (
+        <Card className="relative z-10 space-y-3">
+          <div className="section-title">Repository analysis</div>
+          <p className="text-xs text-cf-muted">
+            Findings are labeled detected / inferred / recommended. Nothing was executed from the repository.
+          </p>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <Badge variant="info">
+              stack: {String((analysis.stack as { name?: string } | undefined)?.name ?? 'unknown')}
+            </Badge>
+            {Array.isArray(analysis.findings) &&
+              (analysis.findings as Array<{ key: string; value: unknown; confidence: string }>)
+                .slice(0, 8)
+                .map((f) => (
+                  <Badge key={f.key} variant="muted">
+                    {f.key}: {String(f.value)} ({f.confidence})
+                  </Badge>
+                ))}
+          </div>
+          {Array.isArray(analysis.limitations) && (
+            <ul className="text-[11px] text-cf-faint list-disc pl-4">
+              {(analysis.limitations as string[]).map((l) => (
+                <li key={l}>{l}</li>
+              ))}
+            </ul>
+          )}
         </Card>
       )}
 
@@ -327,6 +392,9 @@ function RepoTableSection({
   onOpenGitStudio,
   onRemove,
   onRefreshDetails,
+  onAnalyze,
+  onProposeDeploy,
+  analysisBusy,
 }: {
   repo: Repository;
   expanded: boolean;
@@ -336,6 +404,9 @@ function RepoTableSection({
   onOpenGitStudio: () => void;
   onRemove: () => void;
   onRefreshDetails: () => void;
+  onAnalyze: () => void;
+  onProposeDeploy: () => void;
+  analysisBusy: boolean;
 }) {
   return (
     <>
@@ -388,7 +459,27 @@ function RepoTableSection({
           {formatRepoDate(repo.created_at)}
         </td>
         <td className="text-right" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-end gap-1">
+          <div className="flex justify-end gap-1 flex-wrap">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onAnalyze}
+              loading={analysisBusy}
+              title="Analyse repository stack"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="hidden xl:inline">Analyse</span>
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onProposeDeploy}
+              loading={analysisBusy}
+              title="Propose guided deployment workflow"
+            >
+              <Workflow className="w-3.5 h-3.5" />
+              <span className="hidden xl:inline">Propose</span>
+            </Button>
             <Button variant="cyan" size="sm" onClick={onOpenGitStudio} title="Open Git Studio">
               <GitBranch className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Git Studio</span>
