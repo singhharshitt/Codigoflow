@@ -25,6 +25,9 @@ import aiRouter from './routes/ai';
 import dockerRouter from './routes/docker';
 import githubRouter from './routes/github';
 import jobsRouter from './routes/jobs';
+import workflowsRouter from './routes/workflows';
+import integrationsRouter from './routes/integrations';
+import { registerSockets } from './sockets';
 
 import { getDockerStatus } from './integrations/docker';
 
@@ -36,13 +39,7 @@ export function createApp() {
     cors: { origin: config.CLIENT_ORIGIN, credentials: true },
   });
 
-  io.on('connection', (socket) => {
-    logger.info({ socketId: socket.id }, 'Client connected via Socket.IO');
-    socket.on('disconnect', () => {
-      logger.info({ socketId: socket.id }, 'Client disconnected');
-    });
-  });
-
+  registerSockets(io);
   app.set('io', io);
 
   app.use(helmet({ contentSecurityPolicy: false }));
@@ -100,6 +97,8 @@ export function createApp() {
   app.use('/api/docker', dockerRouter);
   app.use('/api/github', githubRouter);
   app.use('/api/jobs', jobsRouter);
+  app.use('/api/workflows', workflowsRouter);
+  app.use('/api/integrations', integrationsRouter);
   app.use('/api/history', (req, res, next) => {
     req.url = '/history';
     jobsRouter(req, res, next);
