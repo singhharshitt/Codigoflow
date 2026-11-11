@@ -1,9 +1,31 @@
-import { useState } from 'react';
-import { Github, Users, GitCommit, Search, ExternalLink } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Github, Users, GitCommit, Search, ExternalLink, GitBranch } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+} from 'recharts';
+import { toast } from 'sonner';
 import { githubApi } from '../services/api';
-import { Alert, PageHeader, LoadingSpinner, EmptyState } from '../components/ui';
+import { theme } from '../config/theme';
+import {
+  Alert,
+  PageHeader,
+  LoadingSpinner,
+  EmptyState,
+  Button,
+  Input,
+  Badge,
+  Card,
+} from '../components/ui';
+import { PageBackground } from '../components/shared';
 import type { GitHubCommit, GitHubContributor } from '../types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export function ContributionExplorerPage() {
   const [url, setUrl] = useState('');
@@ -12,193 +34,290 @@ export function ContributionExplorerPage() {
   const [contributors, setContributors] = useState<GitHubContributor[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedCommit, setSelectedCommit] = useState<GitHubCommit | null>(null);
 
   async function handleSearch() {
     if (!url.trim()) return;
-    setLoading(true); setError(''); setRepoInfo(null); setCommits([]); setContributors([]);
+    setLoading(true);
+    setError('');
+    setRepoInfo(null);
+    setCommits([]);
+    setContributors([]);
+    setSelectedCommit(null);
 
-    const repoRes = await githubApi.repo(url);
-    if (!repoRes.success) {
+    const repoRes = await githubApi.repo(url.trim());
+    if (!repoRes.success || !repoRes.data) {
       setError(repoRes.error?.message ?? 'Failed to fetch repository');
       setLoading(false);
       return;
     }
-    setRepoInfo(repoRes.data as Record<string, unknown>);
+    setRepoInfo(repoRes.data);
 
-    // Parse owner/repo from URL
     const match = url.match(/github\.com\/([^/]+)\/([^/.\s]+)/);
-    if (match) {
-      const [, owner, repo] = match;
-      const [commitsRes, contributorsRes] = await Promise.allSettled([
-        githubApi.commits(owner, repo),
-        githubApi.contributors(owner, repo),
-      ]);
-      if (commitsRes.status === 'fulfilled' && commitsRes.value.success)
-        setCommits((commitsRes.value.data as GitHubCommit[]) ?? []);
-      if (contributorsRes.status === 'fulfilled' && contributorsRes.value.success)
-        setContributors((contributorsRes.value.data as GitHubContributor[]) ?? []);
+    if (!match) {
+      setError('Could not parse owner/repo from the GitHub URL.');
+      setLoading(false);
+      return;
+    }
+
+    const [, owner, repo] = match;
+    const [commitsRes, contributorsRes] = await Promise.allSettled([
+      githubApi.commits(owner, repo),
+      githubApi.contributors(owner, repo),
+    ]);
+
+    if (commitsRes.status === 'fulfilled' && commitsRes.value.success) {
+      setCommits(commitsRes.value.data ?? []);
+    } else if (commitsRes.status === 'fulfilled') {
+      toast.error(commitsRes.value.error?.message ?? 'Commits unavailable');
+    }
+
+    if (contributorsRes.status === 'fulfilled' && contributorsRes.value.success) {
+      setContributors(contributorsRes.value.data ?? []);
+    } else if (contributorsRes.status === 'fulfilled') {
+      toast.error(contributorsRes.value.error?.message ?? 'Contributors unavailable');
     }
 
     setLoading(false);
   }
 
-  const chartData = contributors.slice(0, 10).map((c) => ({
-    name: c.login,
-    contributions: c.contributions,
-  }));
+  const contributorChart = useMemo(
+    () =>
+      contributors.slice(0, 10).map((c) => ({
+        name: c.login,
+        contributions: c.contributions,
+      })),
+    [contributors],
+  );
+
+  const activityChart = useMemo(() => {
+    const buckets = new Map<string, number>();
+    for (const c of commits) {
+      const day = new Date(c.commit.author.date).toLocaleDateString('en', {
+        month: 'short',
+        day: 'numeric',
+      });
+      buckets.set(day, (buckets.get(day) ?? 0) + 1);
+    }
+    return Array.from(buckets.entries())
+      .map(([day, count]) => ({ day, count }))
+      .reverse();
+  }, [commits]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="page-shell relative">
+      <PageBackground />
       <PageHeader
         title="Contribution Explorer"
-        description="Explore GitHub repository activity and contributors"
+        description="Inspect public GitHub activity from real API data — no invented calendars or stats"
       />
 
-      {/* Search */}
-      <div className="card">
-        <div className="flex gap-3">
-          <input
-            className="input flex-1"
-            placeholder="https://github.com/owner/repository"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            id="github-url-input"
-          />
-          <button onClick={handleSearch} disabled={loading} className="btn-primary">
-            {loading ? <LoadingSpinner size="sm" /> : <Search className="w-4 h-4" />}
-            Explore
-          </button>
-        </div>
-      </div>
-
-      {error && <Alert variant="error">{error}</Alert>}
-
-      {loading && <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>}
-
-      {repoInfo && (
-        <>
-          {/* Repo info */}
-          <div className="card">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Github className="w-5 h-5 text-gray-400" />
-                  <span className="text-lg font-bold text-white">
-                    {String(repoInfo.full_name ?? '')}
-                  </span>
-                </div>
-                <div className="text-sm text-gray-400 mt-1">
-                  {String(repoInfo.description ?? 'No description')}
-                </div>
-                <div className="flex gap-4 mt-3 text-xs text-gray-500">
-                  <span>⭐ {String(repoInfo.stargazers_count ?? 0)}</span>
-                  <span>🍴 {String(repoInfo.forks_count ?? 0)}</span>
-                  <span>👁 {String(repoInfo.watchers_count ?? 0)}</span>
-                  <span>🔀 {String(repoInfo.default_branch ?? 'main')}</span>
-                </div>
-              </div>
-              <a
-                href={String(repoInfo.html_url ?? '')}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-secondary text-xs flex-shrink-0"
-              >
-                <ExternalLink className="w-3.5 h-3.5" /> View on GitHub
-              </a>
-            </div>
+      <Card className="relative z-10">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <Input
+              label="GitHub repository URL"
+              placeholder="https://github.com/owner/repository"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void handleSearch()}
+            />
           </div>
+          <div className="flex items-end">
+            <Button onClick={() => void handleSearch()} loading={loading}>
+              <Search className="w-4 h-4" /> Explore
+            </Button>
+          </div>
+        </div>
+      </Card>
 
-          {/* Contributor chart */}
-          {chartData.length > 0 && (
-            <div className="card">
-              <div className="text-sm font-semibold text-gray-200 mb-4 flex items-center gap-2">
-                <Users className="w-4 h-4 text-cyan-400" />
-                Top Contributors
-              </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
-                  <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} />
-                  <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1c2333', border: '1px solid #30363d', borderRadius: 8 }}
-                    labelStyle={{ color: '#e5e7eb' }}
-                  />
-                  <Bar dataKey="contributions" fill="#22d3ee" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-
-          {/* Recent commits */}
-          {commits.length > 0 && (
-            <div className="card">
-              <div className="text-sm font-semibold text-gray-200 mb-4 flex items-center gap-2">
-                <GitCommit className="w-4 h-4 text-brand-400" />
-                Recent Commits
-              </div>
-              <div className="space-y-2">
-                {commits.slice(0, 15).map((c) => (
-                  <a
-                    key={c.sha}
-                    href={c.html_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-start gap-3 p-2 rounded-lg hover:bg-surface-2 transition-colors group"
-                  >
-                    {c.author?.avatar_url && (
-                      <img src={c.author.avatar_url} alt={c.author.login} className="w-6 h-6 rounded-full flex-shrink-0" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs text-gray-200 group-hover:text-white truncate">
-                        {c.commit.message.split('\n')[0]}
-                      </div>
-                      <div className="text-[10px] text-gray-500 mt-0.5">
-                        <span className="font-mono">{c.sha.slice(0, 7)}</span>
-                        {' · '}{c.commit.author.name}
-                        {' · '}{new Date(c.commit.author.date).toLocaleDateString()}
-                      </div>
-                    </div>
-                    <ExternalLink className="w-3 h-3 text-gray-600 group-hover:text-gray-400 flex-shrink-0" />
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Contributors list */}
-          {contributors.length > 0 && (
-            <div className="card">
-              <div className="text-sm font-semibold text-gray-200 mb-4">All Contributors</div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {contributors.map((c) => (
-                  <a
-                    key={c.login}
-                    href={c.html_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-surface-2 transition-colors"
-                  >
-                    <img src={c.avatar_url} alt={c.login} className="w-8 h-8 rounded-full" />
-                    <div>
-                      <div className="text-xs font-medium text-gray-200">{c.login}</div>
-                      <div className="text-[10px] text-gray-500">{c.contributions} commits</div>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+      {error && (
+        <Alert variant="error" className="relative z-10">
+          {error}
+        </Alert>
       )}
 
-      {!repoInfo && !loading && (
-        <div className="card">
+      {loading && (
+        <div className="flex justify-center py-16 relative z-10">
+          <LoadingSpinner size="lg" />
+        </div>
+      )}
+
+      {repoInfo && !loading && (
+        <div className="relative z-10 space-y-6">
+          <div className="card flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cf-elevated border border-cf-border flex items-center justify-center">
+                <Github className="w-5 h-5 text-cf-text" />
+              </div>
+              <div>
+                <div className="text-lg font-semibold text-cf-text">
+                  {String(repoInfo.full_name ?? repoInfo.name ?? 'Repository')}
+                </div>
+                <p className="text-sm text-cf-muted mt-1 max-w-2xl">
+                  {String(repoInfo.description ?? 'No description provided by GitHub.')}
+                </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Badge variant="info">
+                    <GitBranch className="w-3 h-3" /> {String(repoInfo.default_branch ?? '—')}
+                  </Badge>
+                  <Badge variant="muted">
+                    <GitCommit className="w-3 h-3" /> {commits.length} loaded commits
+                  </Badge>
+                  <Badge variant="violet">
+                    <Users className="w-3 h-3" /> {contributors.length} contributors
+                  </Badge>
+                  {repoInfo.stargazers_count != null && (
+                    <Badge variant="muted">★ {String(repoInfo.stargazers_count)}</Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+            {typeof repoInfo.html_url === 'string' && (
+              <a
+                href={repoInfo.html_url}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary"
+              >
+                <ExternalLink className="w-4 h-4" /> Open on GitHub
+              </a>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card title="Commit activity (loaded window)">
+              {activityChart.length > 0 ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={activityChart}>
+                    <defs>
+                      <linearGradient id="cfActivity" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={theme.chart.cyan} stopOpacity={0.35} />
+                        <stop offset="95%" stopColor={theme.chart.cyan} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke={theme.chart.grid} />
+                    <XAxis dataKey="day" tick={{ fill: theme.chart.axis, fontSize: 11 }} />
+                    <YAxis tick={{ fill: theme.chart.axis, fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{
+                        background: theme.chart.tooltipBg,
+                        border: `1px solid ${theme.chart.tooltipBorder}`,
+                        borderRadius: 8,
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      stroke={theme.chart.cyan}
+                      fill="url(#cfActivity)"
+                      name="Commits"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <EmptyState icon={GitCommit} title="No commit activity loaded" />
+              )}
+            </Card>
+
+            <Card title="Contributor activity">
+              {contributorChart.length > 0 ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={contributorChart}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={theme.chart.grid} />
+                    <XAxis dataKey="name" tick={{ fill: theme.chart.axis, fontSize: 10 }} />
+                    <YAxis tick={{ fill: theme.chart.axis, fontSize: 11 }} />
+                    <Tooltip
+                      contentStyle={{
+                        background: theme.chart.tooltipBg,
+                        border: `1px solid ${theme.chart.tooltipBorder}`,
+                        borderRadius: 8,
+                      }}
+                    />
+                    <Bar dataKey="contributions" fill={theme.chart.red} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <EmptyState icon={Users} title="No contributor data" />
+              )}
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
+            <Card title="Recent commits">
+              {commits.length === 0 ? (
+                <EmptyState icon={GitCommit} title="No commits returned" />
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {commits.map((c) => (
+                    <button
+                      key={c.sha}
+                      type="button"
+                      onClick={() => setSelectedCommit(c)}
+                      className="w-full text-left p-3 rounded-lg border border-cf-border hover:border-cf-cyan/40 hover:bg-cf-elevated/40 transition-colors"
+                    >
+                      <div className="text-sm text-cf-text truncate">{c.commit.message.split('\n')[0]}</div>
+                      <div className="text-[11px] text-cf-faint mt-1 font-mono">
+                        {c.sha.slice(0, 7)} · {c.commit.author.name} ·{' '}
+                        {new Date(c.commit.author.date).toLocaleString()}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card title="Commit details">
+              {!selectedCommit ? (
+                <EmptyState icon={GitCommit} title="Select a commit" description="Choose a commit from the list" />
+              ) : (
+                <div className="space-y-3 text-sm">
+                  <div className="text-cf-text font-medium whitespace-pre-wrap">
+                    {selectedCommit.commit.message}
+                  </div>
+                  <div className="font-mono text-xs text-cf-cyan">{selectedCommit.sha}</div>
+                  <div className="text-cf-muted">
+                    {selectedCommit.commit.author.name}
+                    <span className="text-cf-faint">
+                      {' '}
+                      · {new Date(selectedCommit.commit.author.date).toLocaleString()}
+                    </span>
+                  </div>
+                  {selectedCommit.author && (
+                    <div className="flex items-center gap-2 text-xs text-cf-muted">
+                      <img
+                        src={selectedCommit.author.avatar_url}
+                        alt=""
+                        className="w-6 h-6 rounded-full"
+                      />
+                      @{selectedCommit.author.login}
+                    </div>
+                  )}
+                  <a
+                    href={selectedCommit.html_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-cyan inline-flex"
+                  >
+                    <ExternalLink className="w-4 h-4" /> View on GitHub
+                  </a>
+                  <p className="text-[11px] text-cf-faint">
+                    File-level additions/deletions are shown only when returned by the GitHub API for this
+                    endpoint.
+                  </p>
+                </div>
+              )}
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {!repoInfo && !loading && !error && (
+        <div className="card relative z-10">
           <EmptyState
             icon={Github}
-            title="Enter a GitHub repository URL"
-            description="Paste any public GitHub repository URL to explore commits and contributors."
+            title="Explore a GitHub repository"
+            description="Enter a public repository URL to load metadata, commits, and contributors."
           />
         </div>
       )}
