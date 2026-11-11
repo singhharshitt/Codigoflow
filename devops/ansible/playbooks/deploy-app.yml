@@ -1,0 +1,25 @@
+---
+- name: Deploy CódigoFlow sample application
+  hosts: app:management
+  become: true
+  tags: [deploy]
+  roles:
+    - application
+  tasks:
+    - name: Deploy application with error handling
+      block:
+        - name: Ensure application role content is present
+          ansible.builtin.stat:
+            path: "{{ app_root }}/index.html"
+          register: app_index
+
+        - name: Fail clearly when index is missing after role
+          ansible.builtin.assert:
+            that:
+              - app_index.stat.exists
+            fail_msg: "Application index.html was not deployed"
+      rescue:
+        - name: Report deployment failure
+          ansible.builtin.debug:
+            msg: "Deploy failed — check application role and permissions"
+          failed_when: true

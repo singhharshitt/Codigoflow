@@ -1,0 +1,18 @@
+---
+- name: Ensure application root exists
+  ansible.builtin.file:
+    path: "{{ app_root }}"
+    state: directory
+    mode: "0755"
+
+- name: Deploy sample index page
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: "{{ app_root }}/index.html"
+    mode: "0644"
+
+- name: Deploy simple static health marker
+  ansible.builtin.copy:
+    content: "codigoflow-ok\n"
+    dest: "{{ app_root }}/health.txt"
+    mode: "0644"

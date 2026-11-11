@@ -1,0 +1,7 @@
+---
+- name: Configure web server for sample app
+  hosts: app:management
+  become: true
+  tags: [webserver]
+  roles:
+    - webserver

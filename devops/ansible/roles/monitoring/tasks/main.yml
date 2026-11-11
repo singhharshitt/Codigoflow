@@ -1,0 +1,14 @@
+---
+- name: Ensure monitoring plugin directory exists
+  ansible.builtin.file:
+    path: /usr/local/lib/nagios/plugins
+    state: directory
+    mode: "0755"
+  tags: [monitoring]
+
+- name: Note ownership boundary
+  ansible.builtin.debug:
+    msg: >-
+      Ansible stages plugin paths; Nagios owns runtime monitoring config.
+      Puppet owns OS baseline packages/services when both are used.
+  tags: [ownership]

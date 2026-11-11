@@ -1,0 +1,8 @@
+---
+project_name: CodigoFlow
+managed_by: Ansible
+app_user: codigoflow
+app_http_port: 8080
+app_root: /opt/codigoflow/app
+docker_required: true
+environment_name: DevOpsLab

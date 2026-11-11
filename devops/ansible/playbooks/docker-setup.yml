@@ -1,0 +1,7 @@
+---
+- name: Install and configure Docker
+  hosts: codigoflow
+  become: true
+  tags: [docker]
+  roles:
+    - docker

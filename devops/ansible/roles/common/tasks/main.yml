@@ -1,0 +1,24 @@
+---
+- name: Update apt cache (Debian family)
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+  tags: [packages]
+
+- name: Install baseline packages
+  ansible.builtin.package:
+    name:
+      - curl
+      - ca-certificates
+      - git
+      - htop
+    state: present
+  tags: [packages]
+
+- name: Deploy managed MOTD fragment
+  ansible.builtin.template:
+    src: motd.j2
+    dest: /etc/motd.d/codigoflow
+    mode: "0644"
+  tags: [motd]

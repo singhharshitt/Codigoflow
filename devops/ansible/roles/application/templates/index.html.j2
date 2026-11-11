@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ project_name }} Sample App</title>
+</head>
+<body>
+  <h1>{{ project_name }}</h1>
+  <p>Environment: {{ environment_name }}</p>
+  <p>Deployed by Ansible on {{ ansible_date_time.iso8601 | default('unknown') }}</p>
+</body>
+</html>

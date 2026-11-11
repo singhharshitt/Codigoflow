@@ -1,0 +1,25 @@
+---
+- name: Install nginx
+  ansible.builtin.package:
+    name: nginx
+    state: present
+
+- name: Deploy nginx site for CódigoFlow sample app
+  ansible.builtin.template:
+    src: codigoflow.conf.j2
+    dest: /etc/nginx/sites-available/codigoflow
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/codigoflow
+    dest: /etc/nginx/sites-enabled/codigoflow
+    state: link
+  notify: Reload nginx
+
+- name: Ensure nginx is running
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true

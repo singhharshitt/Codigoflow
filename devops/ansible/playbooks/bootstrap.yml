@@ -1,0 +1,20 @@
+---
+- name: Bootstrap managed hosts
+  hosts: codigoflow
+  become: true
+  tags: [bootstrap]
+  roles:
+    - role: common
+      tags: [common]
+  handlers:
+    - name: Restart chrony
+      ansible.builtin.service:
+        name: chrony
+        state: restarted
+  tasks:
+    - name: Ensure chrony installed
+      ansible.builtin.package:
+        name: chrony
+        state: present
+      notify: Restart chrony
+      tags: [time]

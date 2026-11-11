@@ -1,0 +1,11 @@
+# Example dynamic inventory placeholder — use after Terraform outputs are verified.
+# Prefer generating a static inventory from Terraform outputs via CódigoFlow.
+plugin: amazon.aws.aws_ec2
+regions:
+  - us-east-1
+filters:
+  tag:Project: CodigoFlow
+  tag:ManagedBy: Terraform
+keyed_groups:
+  - key: tags.Role
+    prefix: role

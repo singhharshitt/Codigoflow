@@ -1,0 +1,35 @@
+---
+- name: Application health checks
+  hosts: app:management
+  gather_facts: true
+  tags: [health]
+  tasks:
+    - name: Check disk usage
+      ansible.builtin.shell: df -h
+      args:
+        executable: /bin/bash
+      changed_when: false
+      register: disk
+      tags: [disk]
+
+    - name: Show uptime
+      ansible.builtin.command: uptime
+      changed_when: false
+      register: uptime_out
+      tags: [uptime]
+
+    - name: HTTP health probe
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_http_port }}/"
+        status_code: [200, 301, 302]
+        timeout: 5
+      register: http_check
+      failed_when: false
+      tags: [http]
+
+    - name: Report health
+      ansible.builtin.debug:
+        msg:
+          disk: "{{ disk.stdout_lines | default([]) | first }}"
+          uptime: "{{ uptime_out.stdout | default('n/a') }}"
+          http_status: "{{ http_check.status | default('unreachable') }}"

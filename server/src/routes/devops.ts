@@ -3,6 +3,7 @@ import { getControlNodeStatus } from '../devops/adapters';
 import { detectDevOpsTools } from '../devops/services/toolDetection';
 import { runDevOpsPreflight, getDevOpsWorkspaceRoot } from '../devops/services/preflight';
 import terraformRouter from './devopsTerraform';
+import ansibleRouter from './devopsAnsible';
 
 const router = Router();
 
@@ -33,5 +34,6 @@ router.get('/preflight', async (_req: Request, res: Response, next: NextFunction
 });
 
 router.use('/terraform', terraformRouter);
+router.use('/ansible', ansibleRouter);
 
 export default router;
