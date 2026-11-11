@@ -1,5 +1,9 @@
 import { spawn } from 'child_process';
-import { logger } from '../../utils/logger';
+import path from 'path';
+import fs from 'fs';
+import { createError } from '../../middleware/errorHandler';
+import { DOCKER_DEFAULT_TIMEOUT_MS } from '../../config';
+import { getRepository } from '../../services/repositoryService';
 
 export interface DockerStatus {
   available: boolean;
@@ -25,9 +29,17 @@ export interface ImageInfo {
   created: string;
 }
 
-async function runDocker(args: string[], timeoutMs = 15000): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+async function runDocker(
+  args: string[],
+  timeoutMs = DOCKER_DEFAULT_TIMEOUT_MS,
+  cwd?: string,
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
-    const proc = spawn('docker', args, { shell: false });
+    const proc = spawn('docker', args, {
+      shell: false,
+      cwd,
+      windowsHide: true,
+    });
     let stdout = '';
     let stderr = '';
 
@@ -61,7 +73,10 @@ export async function getDockerStatus(): Promise<DockerStatus> {
     if (result.exitCode === 0) {
       return { available: true, version: result.stdout.trim() };
     }
-    return { available: false, error: result.stderr.trim() || 'Docker daemon not running' };
+    return {
+      available: false,
+      error: result.stderr.trim() || 'Docker daemon not running',
+    };
   } catch (err) {
     return { available: false, error: String(err) };
   }
@@ -83,7 +98,15 @@ export async function listContainers(all = true): Promise<ContainerInfo[]> {
     .filter(Boolean)
     .map((line) => {
       const [id, name, image, status, state, ports, created] = line.split('|');
-      return { id: id ?? '', name: name ?? '', image: image ?? '', status: status ?? '', state: state ?? '', ports: ports ?? '', created: created ?? '' };
+      return {
+        id: id ?? '',
+        name: name ?? '',
+        image: image ?? '',
+        status: status ?? '',
+        state: state ?? '',
+        ports: ports ?? '',
+        created: created ?? '',
+      };
     });
 }
 
@@ -100,11 +123,36 @@ export async function listImages(): Promise<ImageInfo[]> {
     .filter(Boolean)
     .map((line) => {
       const [id, repository, tag, size, created] = line.split('|');
-      return { id: id ?? '', repository: repository ?? '', tag: tag ?? '', size: size ?? '', created: created ?? '' };
+      return {
+        id: id ?? '',
+        repository: repository ?? '',
+        tag: tag ?? '',
+        size: size ?? '',
+        created: created ?? '',
+      };
     });
 }
 
-const ALLOWED_CONTAINER_ACTIONS = new Set(['start', 'stop']);
+export async function inspectContainer(containerId: string): Promise<unknown> {
+  assertContainerId(containerId);
+  const result = await runDocker(['inspect', containerId]);
+  if (result.exitCode !== 0) {
+    throw createError(result.stderr || 'Inspect failed', 404, 'CONTAINER_NOT_FOUND');
+  }
+  try {
+    return JSON.parse(result.stdout)[0];
+  } catch {
+    return { raw: result.stdout };
+  }
+}
+
+const ALLOWED_CONTAINER_ACTIONS = new Set(['start', 'stop', 'restart']);
+
+function assertContainerId(containerId: string): void {
+  if (!/^[a-zA-Z0-9_.-]{1,64}$/.test(containerId)) {
+    throw createError('Invalid container identifier', 400, 'INVALID_CONTAINER_ID');
+  }
+}
 
 export async function containerAction(
   containerId: string,
@@ -113,10 +161,11 @@ export async function containerAction(
   if (!ALLOWED_CONTAINER_ACTIONS.has(action)) {
     return { success: false, output: `Action '${action}' is not permitted` };
   }
+  assertContainerId(containerId);
 
-  // Validate container ID format (hex chars or names)
-  if (!/^[a-zA-Z0-9_.-]{1,64}$/.test(containerId)) {
-    return { success: false, output: 'Invalid container identifier' };
+  const known = await listContainers(true);
+  if (!known.some((c) => c.id === containerId || c.name === containerId || c.id.startsWith(containerId))) {
+    // Still attempt — Docker may know short IDs not in formatted list edge cases
   }
 
   const result = await runDocker([action, containerId]);
@@ -127,10 +176,72 @@ export async function containerAction(
 }
 
 export async function getContainerLogs(containerId: string, tail = 100): Promise<string> {
-  if (!/^[a-zA-Z0-9_.-]{1,64}$/.test(containerId)) {
-    throw new Error('Invalid container identifier');
+  assertContainerId(containerId);
+  const result = await runDocker(
+    ['logs', '--tail', String(Math.min(tail, 500)), containerId],
+    20_000,
+  );
+  return result.stdout + result.stderr;
+}
+
+export async function buildImage(input: {
+  repositoryId: string;
+  dockerfile?: string;
+  context?: string;
+  tag?: string;
+}): Promise<{ success: boolean; output: string }> {
+  const repo = getRepository(input.repositoryId);
+  const contextDir = path.resolve(repo.path, input.context || '.');
+  if (!contextDir.startsWith(path.resolve(repo.path))) {
+    throw createError('Build context must stay inside the registered repository', 400, 'INVALID_CONTEXT');
+  }
+  const dockerfile = path.resolve(contextDir, input.dockerfile || 'Dockerfile');
+  if (!dockerfile.startsWith(path.resolve(repo.path))) {
+    throw createError('Dockerfile path must stay inside the registered repository', 400, 'INVALID_DOCKERFILE');
+  }
+  if (!fs.existsSync(dockerfile)) {
+    throw createError('Dockerfile not found', 400, 'DOCKERFILE_NOT_FOUND');
   }
 
-  const result = await runDocker(['logs', '--tail', String(Math.min(tail, 500)), containerId], 20000);
-  return result.stdout + result.stderr;
+  const tag = input.tag || `codigoflow/${repo.name.toLowerCase()}:latest`;
+  if (!/^[a-z0-9._\/:-]+$/i.test(tag)) {
+    throw createError('Invalid image tag', 400, 'INVALID_TAG');
+  }
+
+  const result = await runDocker(
+    ['build', '-f', dockerfile, '-t', tag, contextDir],
+    300_000,
+  );
+  return {
+    success: result.exitCode === 0,
+    output: (result.stdout + result.stderr).trim(),
+  };
+}
+
+export async function composeAction(input: {
+  repositoryId: string;
+  file?: string;
+  action: 'up' | 'down' | 'ps';
+}): Promise<{ success: boolean; output: string }> {
+  const repo = getRepository(input.repositoryId);
+  const file = path.resolve(repo.path, input.file || 'docker-compose.yml');
+  if (!file.startsWith(path.resolve(repo.path))) {
+    throw createError('Compose file must stay inside the registered repository', 400, 'INVALID_COMPOSE_FILE');
+  }
+  if (!fs.existsSync(file)) {
+    throw createError('Compose file not found', 400, 'COMPOSE_NOT_FOUND');
+  }
+
+  const args =
+    input.action === 'up'
+      ? ['compose', '-f', file, 'up', '-d']
+      : input.action === 'down'
+        ? ['compose', '-f', file, 'down']
+        : ['compose', '-f', file, 'ps'];
+
+  const result = await runDocker(args, 180_000, repo.path);
+  return {
+    success: result.exitCode === 0,
+    output: (result.stdout + result.stderr).trim(),
+  };
 }
