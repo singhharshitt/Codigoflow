@@ -1,210 +1,385 @@
-import { useState, useEffect } from 'react';
-import { Bot, Sparkles, Send, Loader2, CheckCircle } from 'lucide-react';
-import { aiApi } from '../services/api';
-import { Alert, PageHeader } from '../components/ui';
-import type { AIStatus } from '../types';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Bot,
+  Sparkles,
+  Send,
+  Trash2,
+  Copy,
+  CheckCircle,
+  AlertTriangle,
+  Container,
+  GitCommit,
+  MessageSquare,
+} from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { toast } from 'sonner';
+import { aiApi, dockerApi, repositoriesApi } from '../services/api';
+import { useRepoStore } from '../stores/repoStore';
+import { useAIStore, type CopilotMode } from '../stores/aiStore';
+import {
+  Alert,
+  PageHeader,
+  Button,
+  Tabs,
+  EmptyState,
+  LoadingSpinner,
+  Badge,
+  Select,
+} from '../components/ui';
+import { PageBackground, SpiderEmblem } from '../components/shared';
+import type { AIStatus, ContainerInfo } from '../types';
 
-type AITool = 'commit' | 'error' | 'docker' | 'ask';
-
-const TOOLS: { id: AITool; label: string; icon: string; desc: string; placeholder: string }[] = [
-  { id: 'commit', label: 'Commit Messages', icon: '✨', desc: 'Paste a diff to generate 3 commit messages', placeholder: 'Paste your git diff here…' },
-  { id: 'error',  label: 'Error Explainer', icon: '🔍', desc: 'Explain a build error or stack trace', placeholder: 'Paste the error message or stack trace here…' },
-  { id: 'docker', label: 'Docker Log Analyzer', icon: '🐳', desc: 'Analyze container logs for failures', placeholder: 'Paste container logs here…' },
-  { id: 'ask',    label: 'Code Assistant', icon: '💬', desc: 'Ask any development question', placeholder: 'What would you like help with?' },
+const SUGGESTIONS = [
+  'How do I resolve a merge conflict in Git?',
+  'Explain a failing Docker health check',
+  'Write a conventional commit message strategy',
+  'What does npm ERR! ERESOLVE mean?',
 ];
 
 export function AICopilotPage() {
+  const { selectedId, repositories } = useRepoStore();
+  const { messages, mode, setMode, addMessage, clear } = useAIStore();
   const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
-  const [activeTool, setActiveTool] = useState<AITool>('ask');
   const [input, setInput] = useState('');
-  const [codeContext, setCodeContext] = useState('');
-  const [result, setResult] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [containers, setContainers] = useState<ContainerInfo[]>([]);
+  const [selectedContainer, setSelectedContainer] = useState('');
+  const [commitSuggestions, setCommitSuggestions] = useState<string[]>([]);
 
   useEffect(() => {
     aiApi.status().then((res) => {
-      if (res.success && res.data) setAiStatus(res.data as AIStatus);
+      if (res.success && res.data) setAiStatus(res.data);
     });
   }, []);
 
-  async function handleSubmit() {
-    if (!input.trim()) return;
-    setLoading(true); setError(''); setResult(null);
+  useEffect(() => {
+    if (mode === 'docker') {
+      dockerApi.containers(true).then((res) => {
+        if (res.success && res.data) setContainers(res.data);
+      });
+    }
+  }, [mode]);
+
+  const configured = aiStatus?.configured === true;
+
+  const tabs = useMemo(
+    () =>
+      [
+        { id: 'chat' as const, label: 'Assistant' },
+        { id: 'commit' as const, label: 'Commit Messages' },
+        { id: 'error' as const, label: 'Error Explainer' },
+        { id: 'docker' as const, label: 'Docker Logs' },
+      ] satisfies { id: CopilotMode; label: string }[],
+    [],
+  );
+
+  async function handleSend() {
+    if (!input.trim() || !configured) return;
+    const prompt = input.trim();
+    setInput('');
+    addMessage({ role: 'user', content: prompt, mode });
+    setLoading(true);
 
     try {
-      let res;
-      switch (activeTool) {
-        case 'commit': res = await aiApi.commitMessages(input); break;
-        case 'error':  res = await aiApi.explainError(input); break;
-        case 'docker': res = await aiApi.analyzeDockerLogs(input); break;
-        case 'ask':    res = await aiApi.ask(input, codeContext || undefined); break;
+      if (mode === 'commit') {
+        let diff = prompt;
+        if (selectedId && !prompt.includes('diff --git')) {
+          const diffRes = await repositoriesApi.diff(selectedId);
+          if (diffRes.success && diffRes.data?.diff) diff = diffRes.data.diff;
+        }
+        if (!diff.trim()) {
+          toast.error('No diff available. Paste a diff or stage changes in Git Studio.');
+          setLoading(false);
+          return;
+        }
+        const res = await aiApi.commitMessages(diff);
+        if (!res.success || !res.data) {
+          toast.error(res.error?.message ?? 'Commit message generation failed');
+          addMessage({
+            role: 'assistant',
+            content: res.error?.message ?? 'Request failed',
+            mode,
+          });
+        } else {
+          setCommitSuggestions(res.data.messages ?? []);
+          addMessage({
+            role: 'assistant',
+            content: (res.data.messages ?? []).map((m, i) => `${i + 1}. ${m}`).join('\n'),
+            mode,
+          });
+        }
+      } else if (mode === 'error') {
+        const res = await aiApi.explainError(prompt);
+        if (!res.success || !res.data) {
+          toast.error(res.error?.message ?? 'Error explanation failed');
+          addMessage({ role: 'assistant', content: res.error?.message ?? 'Request failed', mode });
+        } else {
+          const body = [
+            res.data.explanation,
+            '',
+            '### Suggestions',
+            ...(res.data.suggestions ?? []).map((s) => `- ${s}`),
+          ].join('\n');
+          addMessage({ role: 'assistant', content: body, mode });
+        }
+      } else if (mode === 'docker') {
+        let logs = prompt;
+        if (selectedContainer) {
+          const logRes = await dockerApi.logs(selectedContainer, 200);
+          if (logRes.success && logRes.data?.logs) logs = logRes.data.logs;
+        }
+        const res = await aiApi.analyzeDockerLogs(logs);
+        if (!res.success || !res.data) {
+          toast.error(res.error?.message ?? 'Log analysis failed');
+          addMessage({ role: 'assistant', content: res.error?.message ?? 'Request failed', mode });
+        } else {
+          const d = res.data as {
+            summary?: string;
+            cause?: string;
+            suggestions?: string[];
+            likelyCauses?: string[];
+            recommendations?: string[];
+          };
+          const body = [
+            d.summary ?? '',
+            d.cause ? `\n**Likely cause:** ${d.cause}` : '',
+            d.likelyCauses?.length ? `\n### Likely causes\n${d.likelyCauses.map((c) => `- ${c}`).join('\n')}` : '',
+            d.suggestions?.length || d.recommendations?.length
+              ? `\n### Suggestions\n${(d.suggestions ?? d.recommendations ?? []).map((s) => `- ${s}`).join('\n')}`
+              : '',
+          ].join('');
+          addMessage({ role: 'assistant', content: body, mode });
+        }
+      } else {
+        const res = await aiApi.ask(prompt);
+        if (!res.success || !res.data) {
+          toast.error(res.error?.message ?? 'Assistant request failed');
+          addMessage({ role: 'assistant', content: res.error?.message ?? 'Request failed', mode });
+        } else {
+          const answer =
+            (res.data as { answer?: string }).answer ??
+            (typeof res.data === 'string' ? res.data : JSON.stringify(res.data, null, 2));
+          addMessage({ role: 'assistant', content: answer, mode });
+        }
       }
-      if (res?.success) setResult(res.data);
-      else setError(res?.error?.message ?? 'AI request failed');
     } catch (e) {
-      setError(String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(msg);
+      addMessage({ role: 'assistant', content: msg, mode });
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
-  const currentTool = TOOLS.find((t) => t.id === activeTool)!;
+  function copyText(text: string) {
+    void navigator.clipboard.writeText(text);
+    toast.success('Copied');
+  }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="page-shell relative">
+      <PageBackground showWeb={false} />
       <PageHeader
-        title="AI Copilot"
-        description="AI-powered development assistance"
+        title="AI Developer Copilot"
+        description="Commit help, error explanation, Docker log analysis, and general assistance — keyed on the server only"
+        action={
+          <Button variant="ghost" onClick={() => clear()}>
+            <Trash2 className="w-4 h-4" /> Clear
+          </Button>
+        }
       />
 
-      {aiStatus && !aiStatus.configured && (
-        <Alert variant="warning" title="AI not configured">
-          Set <code className="font-mono bg-surface-3 px-1 rounded">AI_API_KEY</code> in your server environment to enable AI features.
-          The current model is <code className="font-mono bg-surface-3 px-1 rounded">{aiStatus.model}</code>.
+      {!configured && (
+        <Alert variant="warning" title="AI provider not configured" className="relative z-10">
+          Set <code className="font-mono">AI_API_KEY</code> in <code className="font-mono">server/.env</code>.
+          Responses are never fabricated when the provider is unavailable.
+          {aiStatus?.model ? (
+            <>
+              {' '}
+              Expected model: <code className="font-mono">{aiStatus.model}</code>
+            </>
+          ) : null}
         </Alert>
       )}
 
-      {aiStatus?.configured && (
-        <div className="flex items-center gap-2 text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2 w-fit">
-          <CheckCircle className="w-3.5 h-3.5" />
-          AI ready · Model: <span className="font-mono">{aiStatus.model}</span>
+      {configured && (
+        <div className="relative z-10 flex items-center gap-2 text-xs">
+          <Badge variant="success">
+            <CheckCircle className="w-3 h-3" /> Ready
+          </Badge>
+          <span className="text-cf-faint font-mono">{aiStatus?.model}</span>
         </div>
       )}
 
-      {/* Tool selector */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {TOOLS.map((tool) => (
-          <button
-            key={tool.id}
-            onClick={() => { setActiveTool(tool.id); setResult(null); setError(''); }}
-            className={`card-sm text-left transition-all ${
-              activeTool === tool.id
-                ? 'border-violet-500 bg-violet-500/10'
-                : 'hover:border-surface-5 hover:bg-surface-2'
-            }`}
-          >
-            <div className="text-lg mb-1">{tool.icon}</div>
-            <div className="text-xs font-medium text-gray-200">{tool.label}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">{tool.desc}</div>
-          </button>
-        ))}
+      <div className="relative z-10">
+        <Tabs tabs={tabs} value={mode} onChange={setMode} />
       </div>
 
-      <div className="card space-y-4">
-        <div className="flex items-center gap-2">
-          <Bot className="w-4 h-4 text-violet-400" />
-          <span className="text-sm font-semibold text-gray-200">{currentTool.label}</span>
-        </div>
+      <div className="relative z-10 grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-4">
+        <div className="card flex flex-col min-h-[520px]">
+          <div className="flex items-center gap-2 mb-4 border-b border-cf-border pb-3">
+            <SpiderEmblem size={22} />
+            <div className="text-sm font-semibold text-cf-text">Conversation</div>
+            <Badge variant="violet">{mode}</Badge>
+          </div>
 
-        <textarea
-          className="input resize-none font-mono text-xs"
-          rows={8}
-          placeholder={currentTool.placeholder}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={loading || !aiStatus?.configured}
-        />
+          <div className="flex-1 space-y-3 overflow-y-auto max-h-[420px] pr-1">
+            {messages.length === 0 ? (
+              <EmptyState
+                icon={Bot}
+                title="Start a conversation"
+                description="Ask about Git, Docker, builds, or paste errors and diffs for analysis."
+                action={
+                  <div className="grid gap-2 max-w-md">
+                    {SUGGESTIONS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className="card-sm text-left text-xs text-cf-muted hover:border-cf-cyan/40"
+                        onClick={() => setInput(s)}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                }
+              />
+            ) : (
+              messages.map((m) => (
+                <div
+                  key={m.id}
+                  className={
+                    m.role === 'user'
+                      ? 'ml-8 rounded-lg border border-cf-border bg-cf-elevated/60 p-3'
+                      : 'mr-8 rounded-lg border border-cf-violet/30 bg-cf-navy/70 p-3'
+                  }
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] uppercase tracking-wider text-cf-faint">
+                      {m.role === 'user' ? 'You' : 'Copilot'}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-cf-faint hover:text-cf-cyan"
+                      onClick={() => copyText(m.content)}
+                      aria-label="Copy message"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="prose-invert text-sm text-cf-muted [&_pre]:bg-cf-navy [&_pre]:p-3 [&_pre]:rounded-lg [&_code]:font-mono [&_code]:text-cf-cyan">
+                    <ReactMarkdown>{m.content}</ReactMarkdown>
+                  </div>
+                </div>
+              ))
+            )}
+            {loading && (
+              <div className="flex items-center gap-2 text-cf-cyan text-sm">
+                <LoadingSpinner size="sm" /> Thinking…
+              </div>
+            )}
+          </div>
 
-        {activeTool === 'ask' && (
-          <div>
-            <label className="block text-xs text-gray-400 mb-1.5">Code Context (optional)</label>
+          {mode === 'docker' && (
+            <div className="mt-3">
+              <Select
+                label="Container (optional — loads live logs)"
+                value={selectedContainer}
+                onChange={(e) => setSelectedContainer(e.target.value)}
+              >
+                <option value="">Paste logs manually</option>
+                {containers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.state})
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
+
+          {mode === 'commit' && (
+            <p className="mt-3 text-xs text-cf-faint">
+              Uses pasted diff, or working-tree diff from{' '}
+              <span className="font-mono text-cf-cyan">
+                {repositories.find((r) => r.id === selectedId)?.name ?? 'selected repository'}
+              </span>
+              .
+            </p>
+          )}
+
+          <div className="mt-4 flex gap-2">
             <textarea
-              className="input resize-none font-mono text-xs"
-              rows={4}
-              placeholder="Paste relevant code here for more accurate answers…"
-              value={codeContext}
-              onChange={(e) => setCodeContext(e.target.value)}
-              disabled={loading || !aiStatus?.configured}
+              className="input min-h-[88px] resize-y font-mono text-xs"
+              placeholder={
+                mode === 'commit'
+                  ? 'Paste unified diff (or leave a note and use repo diff)…'
+                  : mode === 'error'
+                    ? 'Paste build/runtime error or stack trace…'
+                    : mode === 'docker'
+                      ? 'Paste Docker logs or select a container…'
+                      : 'Ask a development question…'
+              }
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              disabled={!configured || loading}
             />
           </div>
-        )}
-
-        {error && <Alert variant="error">{error}</Alert>}
-
-        <button
-          onClick={handleSubmit}
-          disabled={loading || !aiStatus?.configured || !input.trim()}
-          className="btn-primary"
-          id="ai-submit-btn"
-        >
-          {loading ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
-          ) : (
-            <><Send className="w-4 h-4" /> Submit</>
-          )}
-        </button>
-      </div>
-
-      {result != null ? (
-        <div className="card animate-fade-in">
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-4 h-4 text-violet-400" />
-            <span className="text-sm font-semibold text-gray-200">AI Response</span>
+          <div className="mt-3 flex justify-end">
+            <Button onClick={handleSend} loading={loading} disabled={!configured || !input.trim()}>
+              <Send className="w-4 h-4" /> Send
+            </Button>
           </div>
-          <AIResult tool={activeTool} data={result} />
         </div>
-      ) : null}
+
+        <div className="space-y-4">
+          <div className="card space-y-3">
+            <div className="text-sm font-semibold text-cf-text flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cf-violet" /> Modes
+            </div>
+            <ModeHint icon={MessageSquare} title="Assistant" text="Git, Docker, builds, config" />
+            <ModeHint icon={GitCommit} title="Commit messages" text="Three suggestions from a diff" />
+            <ModeHint icon={AlertTriangle} title="Error explainer" text="Summary, cause, fixes" />
+            <ModeHint icon={Container} title="Docker logs" text="Failure analysis from logs" />
+          </div>
+
+          {commitSuggestions.length > 0 && (
+            <div className="card space-y-2">
+              <div className="text-sm font-semibold text-cf-text">Commit suggestions</div>
+              {commitSuggestions.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className="w-full text-left card-sm font-mono text-xs hover:border-cf-cyan/40"
+                  onClick={() => copyText(m)}
+                >
+                  {m}
+                </button>
+              ))}
+              <p className="text-[10px] text-cf-faint">Copy a message, then paste it in Git Studio.</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-function AIResult({ tool, data }: { tool: AITool; data: unknown }) {
-  if (tool === 'commit') {
-    const msgs = (data as { messages: string[] }).messages ?? [];
-    return (
-      <div className="space-y-2">
-        {msgs.map((m, i) => (
-          <div key={i} className="p-3 bg-surface-2 rounded-lg border border-surface-4 font-mono text-sm text-gray-200">
-            {m}
-          </div>
-        ))}
+function ModeHint({
+  icon: Icon,
+  title,
+  text,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="flex gap-2 text-xs">
+      <Icon className="w-4 h-4 text-cf-cyan flex-shrink-0 mt-0.5" />
+      <div>
+        <div className="text-cf-text font-medium">{title}</div>
+        <div className="text-cf-faint">{text}</div>
       </div>
-    );
-  }
-
-  if (tool === 'error') {
-    const d = data as { explanation: string; suggestions: string[] };
-    return (
-      <div className="space-y-3">
-        <div className="text-sm text-gray-200">{d.explanation}</div>
-        {d.suggestions.length > 0 && (
-          <div>
-            <div className="text-xs font-semibold text-gray-400 mb-2">Suggestions:</div>
-            <ul className="space-y-1">
-              {d.suggestions.map((s, i) => (
-                <li key={i} className="flex gap-2 text-sm text-gray-300">
-                  <span className="text-brand-400">→</span> {s}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (tool === 'docker') {
-    const d = data as { summary: string; likelyCauses: string[]; recommendations: string[] };
-    return (
-      <div className="space-y-3">
-        <div className="text-sm text-gray-200">{d.summary}</div>
-        {d.likelyCauses.length > 0 && (
-          <div>
-            <div className="text-xs font-semibold text-yellow-400 mb-1">Likely Causes:</div>
-            {d.likelyCauses.map((c, i) => <div key={i} className="text-sm text-gray-300">• {c}</div>)}
-          </div>
-        )}
-        {d.recommendations.length > 0 && (
-          <div>
-            <div className="text-xs font-semibold text-cyan-400 mb-1">Recommendations:</div>
-            {d.recommendations.map((r, i) => <div key={i} className="text-sm text-gray-300">→ {r}</div>)}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ask
-  return <div className="text-sm text-gray-200 whitespace-pre-wrap">{(data as { answer: string }).answer}</div>;
+    </div>
+  );
 }
