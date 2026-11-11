@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { getControlNodeStatus } from '../devops/adapters';
 import { detectDevOpsTools } from '../devops/services/toolDetection';
 import { runDevOpsPreflight, getDevOpsWorkspaceRoot } from '../devops/services/preflight';
+import terraformRouter from './devopsTerraform';
 
 const router = Router();
 
@@ -30,5 +31,7 @@ router.get('/preflight', async (_req: Request, res: Response, next: NextFunction
     next(err);
   }
 });
+
+router.use('/terraform', terraformRouter);
 
 export default router;

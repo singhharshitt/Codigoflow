@@ -1,0 +1,9 @@
+aws_region       = "us-east-1"
+ami_id           = "ami-0c7217cdde317cfec"
+instance_type    = "t3.micro"
+key_name         = "YOUR_KEY_PAIR"
+vpc_id           = "vpc-xxxxxxxx"
+subnet_id        = "subnet-xxxxxxxx"
+ssh_ingress_cidr = "203.0.113.10/32"
+enable_http      = true
+enable_https     = false

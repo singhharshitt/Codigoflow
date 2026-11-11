@@ -35,6 +35,16 @@ server/dist/
 # ── Runtime data & databases ──────────────────────────────────────────────────
 /data/
 server/data/
+devops/.plans/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
+crash.log
+crash.*.log
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+!*.tfvars.example
 *.db
 *.db-journal
 *.db-shm
