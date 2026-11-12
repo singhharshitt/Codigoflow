@@ -26,7 +26,11 @@ Path: `devops/terraform/aws`
 - `POST /api/devops/terraform/plans/:id/approve`
 - `POST /api/devops/terraform/apply` with `{ "planId", "approve": true }`
 
-Destroy is disabled unless `DEVOPS_TF_DESTROY_ENABLED=true`.
+Destroy is disabled unless `DEVOPS_TF_DESTROY_ENABLED=true` and requires a separate explicit approval path — do not treat apply approval as destroy approval.
+
+## AWS authentication (control node)
+
+Prefer an **IAM instance role** on the Linux control node (or short-lived credentials injected into that environment). CódigoFlow does not require permanent AWS access keys in the app or browser. Provider credentials remain outside the frontend.
 
 ## Troubleshooting
 

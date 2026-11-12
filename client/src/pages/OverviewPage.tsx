@@ -171,12 +171,15 @@ export function OverviewPage() {
         <MaskLineArt className="absolute -right-2 top-1/2 h-28 w-28 -translate-y-1/2 opacity-[0.1] md:right-6 md:h-32 md:w-32" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-cf-cyan">Command center</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-cf-cyan">
+              AI-powered DevOps orchestration
+            </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-cf-text">
               Welcome to Código<span className="text-cf-red">Flow</span>
             </h1>
             <p className="mt-1 max-w-xl text-sm text-cf-muted">
-              Monitor repositories, containers, and automation jobs from one premium overview.
+              Import a repository, review a guided deployment proposal, orchestrate Terraform → Ansible →
+              Puppet → Nagios, and troubleshoot with real execution logs.
             </p>
           </div>
 
@@ -208,14 +211,57 @@ export function OverviewPage() {
               </Button>
               <Button variant="primary" size="sm" onClick={() => navigate('/repositories')}>
                 <Plus className="h-4 w-4" />
-                Add repo
+                Import repo
               </Button>
-              <Button variant="cyan" size="sm" onClick={() => navigate('/git')}>
+              <Button variant="cyan" size="sm" onClick={() => navigate('/workflow')}>
+                <Sparkles className="h-4 w-4" />
+                Workflows
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => navigate('/history')}>
+                <History className="h-4 w-4" />
+                History
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => navigate('/git')}>
                 <GitBranch className="h-4 w-4" />
                 Git Studio
               </Button>
             </div>
           </div>
+        </div>
+
+        <div className="relative mt-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
+          {[
+            {
+              title: '1. Import',
+              body: 'Paste a public GitHub URL — no local path required.',
+              to: '/repositories',
+            },
+            {
+              title: '2. Analyse',
+              body: 'Detect stack, Dockerfile, and env names (no secret values).',
+              to: '/repositories',
+            },
+            {
+              title: '3. Review workflow',
+              body: 'Load a proposed Terraform→Ansible→Puppet→Nagios graph.',
+              to: '/workflow',
+            },
+            {
+              title: '4. Observe',
+              body: 'Track jobs, logs, and AI diagnostics for failures.',
+              to: '/history',
+            },
+          ].map((step) => (
+            <button
+              key={step.title}
+              type="button"
+              onClick={() => navigate(step.to)}
+              className="rounded-lg border border-cf-border/80 bg-cf-navy/40 px-3 py-2.5 text-left hover:border-cf-cyan/40 transition-colors"
+            >
+              <div className="text-xs font-semibold text-cf-cyan">{step.title}</div>
+              <div className="mt-1 text-[11px] text-cf-muted leading-snug">{step.body}</div>
+            </button>
+          ))}
         </div>
       </section>
 

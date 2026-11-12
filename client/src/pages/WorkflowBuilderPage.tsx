@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -8,16 +8,17 @@ import {
   useEdgesState,
   useNodesState,
   type Connection,
+  type Edge,
   type Node,
   BackgroundVariant,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Plus, Save, Trash2, Play } from 'lucide-react';
+import { Plus, Save, Trash2, Play, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { WorkflowNode } from '../features/workflows/WorkflowNode';
 import { useWorkflowStore, type WorkflowNodeData } from '../stores/workflowStore';
 import { workflowApi } from '../services/devopsApi';
-import { PageHeader, Button, Input, Alert, Badge } from '../components/ui';
+import { PageHeader, Button, Input, Alert, Badge, Select } from '../components/ui';
 import { PageBackground } from '../components/shared';
 
 const LIBRARY: { kind: string; label: string; planned?: boolean }[] = [
@@ -125,6 +126,83 @@ export function WorkflowBuilderPage() {
 
   const [workflowId, setWorkflowId] = useState<string | null>(null);
   const [runOutput, setRunOutput] = useState('');
+  const [savedList, setSavedList] = useState<Array<{ id: string; name: string }>>([]);
+
+  function applyGraph(
+    nextName: string,
+    nextNodes: Node<WorkflowNodeData>[],
+    nextEdges: Edge[],
+    id?: string | null,
+  ) {
+    setName(nextName);
+    setNodes(nextNodes);
+    setEdges(nextEdges);
+    persistNodes(nextNodes);
+    persistEdges(nextEdges);
+    setWorkflowId(id ?? null);
+  }
+
+  async function refreshSaved() {
+    const res = await workflowApi.list();
+    if (res.success && Array.isArray(res.data)) {
+      setSavedList(
+        (res.data as Array<{ id: string; name: string }>).map((w) => ({
+          id: w.id,
+          name: w.name,
+        })),
+      );
+    }
+  }
+
+  useEffect(() => {
+    void refreshSaved();
+    const raw = sessionStorage.getItem('cf-deploy-proposal');
+    if (!raw) return;
+    try {
+      const proposal = JSON.parse(raw) as {
+        name?: string;
+        nodes?: Node<WorkflowNodeData>[];
+        edges?: Edge[];
+      };
+      if (proposal.nodes?.length) {
+        applyGraph(
+          proposal.name || 'Proposed deployment',
+          proposal.nodes,
+          proposal.edges ?? [],
+          null,
+        );
+        toast.message('Loaded deploy proposal', {
+          description: 'Review the graph. Nothing was executed automatically.',
+        });
+      }
+    } catch {
+      /* ignore malformed */
+    } finally {
+      sessionStorage.removeItem('cf-deploy-proposal');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadSaved(id: string) {
+    if (!id) return;
+    const res = await workflowApi.get(id);
+    if (!res.success || !res.data) {
+      toast.error(res.error?.message ?? 'Failed to load workflow');
+      return;
+    }
+    const row = res.data as { id: string; name: string; workflow_json: string };
+    try {
+      const parsed = JSON.parse(row.workflow_json) as {
+        name?: string;
+        nodes?: Node<WorkflowNodeData>[];
+        edges?: Edge[];
+      };
+      applyGraph(parsed.name || row.name, parsed.nodes ?? [], parsed.edges ?? [], row.id);
+      toast.success('Workflow loaded');
+    } catch {
+      toast.error('Saved workflow JSON is invalid');
+    }
+  }
 
   async function handleSave() {
     persistNodes(nodes);
@@ -200,6 +278,29 @@ export function WorkflowBuilderPage() {
         DevOps nodes execute through the backend job engine. Destructive steps require approve: true in node config.
         {workflowId ? ` Saved id: ${workflowId}` : ' Save before validate/run.'}
       </Alert>
+
+      <div className="relative z-10 flex flex-wrap gap-2 items-end">
+        <div className="min-w-[16rem] flex-1">
+          <Select
+            label="Load saved workflow"
+            value=""
+            onChange={(e) => {
+              const id = e.target.value;
+              if (id) void loadSaved(id);
+            }}
+          >
+            <option value="">Select a saved workflow…</option>
+            {savedList.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <Button variant="secondary" onClick={() => void refreshSaved()}>
+          <FolderOpen className="w-4 h-4" /> Refresh list
+        </Button>
+      </div>
 
       <div className="relative z-10 grid grid-cols-1 xl:grid-cols-[220px_1fr_260px] gap-3 min-h-[640px]">
         <aside className="card !p-3 space-y-2 overflow-y-auto max-h-[640px]">

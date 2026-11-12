@@ -18,12 +18,82 @@ export const healthApi = {
   get: () => apiRequest<HealthStatus>('/health'),
 };
 
+export type LocalRepoInspect = {
+  path: string;
+  exists: boolean;
+  isGit: boolean;
+  alreadyRegistered: boolean;
+  registeredId?: string;
+  nameHint: string;
+  branch?: string;
+  remoteUrl?: string;
+  status?: { staged: number; unstaged: number; untracked: number };
+};
+
 export const repositoriesApi = {
   list: () => apiRequest<Repository[]>('/repositories'),
   get: (id: string) => apiRequest<Repository>(`/repositories/${id}`),
   register: (body: { path: string; name?: string; description?: string }) =>
     apiRequest<Repository>('/repositories', { method: 'POST', data: body }),
+  clone: (body: { url: string; destination: string; name?: string; description?: string }) =>
+    apiRequest<Repository>('/repositories/clone', {
+      method: 'POST',
+      data: body,
+      timeout: 180_000,
+    }),
+  githubPreview: (url: string) =>
+    apiRequest<{
+      url: string;
+      owner: string;
+      repo: string;
+      fullName: string;
+      description: string | null;
+      private: boolean;
+      defaultBranch: string;
+      language: string | null;
+      stars: number | null;
+      sizeKb: number | null;
+      importAllowed: boolean;
+      authRequired: boolean;
+      oversized: boolean;
+      sizeLimitMb: number;
+      note: string;
+    }>('/repositories/github/preview', {
+      method: 'POST',
+      data: { url },
+    }),
+  githubImport: (body: { url: string; branch?: string; name?: string; description?: string }) =>
+    apiRequest<{
+      repository: Repository;
+      alreadyPresent: boolean;
+      destination: string;
+      branch: string;
+      message: string;
+    }>('/repositories/github/import', {
+      method: 'POST',
+      data: body,
+      timeout: 180_000,
+    }),
+  inspect: (path: string) =>
+    apiRequest<LocalRepoInspect>('/repositories/inspect', {
+      method: 'POST',
+      data: { path },
+    }),
   remove: (id: string) => apiRequest<void>(`/repositories/${id}`, { method: 'DELETE' }),
+  analyze: (id: string) => apiRequest<Record<string, unknown>>(`/repositories/${id}/analyze`),
+  deployProposal: (id: string) =>
+    apiRequest<{
+      analysis: Record<string, unknown>;
+      proposal: {
+        name: string;
+        description?: string;
+        reviewRequired: boolean;
+        autoExecute: boolean;
+        notes: string[];
+        nodes: unknown[];
+        edges: unknown[];
+      };
+    }>(`/repositories/${id}/deploy-proposal`, { method: 'POST' }),
   status: (id: string) => apiRequest<RepoStatus>(`/repositories/${id}/status`),
   branches: (id: string) => apiRequest<BranchInfo[]>(`/repositories/${id}/branches`),
   commits: (id: string, limit = 30) =>
@@ -90,6 +160,21 @@ export const jobsApi = {
   list: (limit = 50) => apiRequest<Job[]>('/jobs', { params: { limit } }),
   history: (limit = 50) => apiRequest<Job[]>('/history', { params: { limit } }),
   get: (id: string) => apiRequest<Job>(`/jobs/${id}`),
+  logs: (id: string) =>
+    apiRequest<Array<{ id: string; timestamp: number; level: string; message: string }>>(
+      `/jobs/${id}/logs`,
+    ),
+};
+
+export const aiJobApi = {
+  analyzeJob: (jobId: string) =>
+    apiRequest<{
+      jobId: string;
+      operation: string;
+      status: string;
+      analysis: Record<string, unknown>;
+      disclaimer: string;
+    }>('/ai/analyze-job', { method: 'POST', data: { jobId }, timeout: 60_000 }),
 };
 
 // Named service aliases for feature modules

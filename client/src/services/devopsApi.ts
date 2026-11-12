@@ -3,6 +3,8 @@ import { apiRequest } from './http';
 export const devopsApi = {
   status: () => apiRequest('/devops/status'),
   preflight: () => apiRequest('/devops/preflight'),
+  pipeline: () => apiRequest('/devops/pipeline'),
+  labStatus: () => apiRequest('/devops/lab/status'),
 
   terraform: {
     status: () => apiRequest('/devops/terraform/status'),

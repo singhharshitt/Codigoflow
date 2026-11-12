@@ -15,6 +15,7 @@ import {
   type WorkflowNodeConfig,
   type WorkflowEdge,
 } from '../devops/workflow-engine';
+import { requireWorkflowRunAuth } from '../middleware/devopsAuth';
 
 const router = Router();
 
@@ -160,7 +161,7 @@ router.get('/:id/runs/:jobId/nodes', (req: Request, res: Response, next: NextFun
   }
 });
 
-router.post('/:id/run', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/:id/run', requireWorkflowRunAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const wf = getWorkflow(req.params.id);
     const { nodes, edges } = parseGraph(wf.workflow_json);

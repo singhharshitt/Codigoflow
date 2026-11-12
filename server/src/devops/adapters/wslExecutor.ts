@@ -6,6 +6,7 @@ import {
   redactSecrets,
   summarizeCommand,
 } from './sanitize';
+import { translateRequestPathsForWsl } from './pathBridge';
 
 /**
  * Execute allowlisted commands inside a fixed WSL distribution.
@@ -81,9 +82,15 @@ export class WslExecutor implements DevOpsExecutor {
     assertSafeExecutable(req.executable);
     assertSafeArgs(req.args);
 
+    // Windows host paths must be translated before entering the Linux distro.
+    const translated = translateRequestPathsForWsl({
+      cwd: req.cwd,
+      args: req.args,
+    });
+
     // Special-case: allow bash -lc only for fixed internal probes with allowlisted content
     const wslArgs = ['-d', this.distro, '--'];
-    if (req.cwd) {
+    if (translated.cwd) {
       // Use bash -lc with validated cwd and executable/args re-joined safely via "$@"
       // We pass: bash -lc 'cd "$1" && shift && exec "$@"' _ <cwd> <exe> <args...>
       wslArgs.push(
@@ -91,15 +98,21 @@ export class WslExecutor implements DevOpsExecutor {
         '-lc',
         'cd "$1" && shift && exec "$@"',
         '_',
-        req.cwd,
+        translated.cwd,
         req.executable,
-        ...req.args,
+        ...translated.args,
       );
     } else {
-      wslArgs.push(req.executable, ...req.args);
+      wslArgs.push(req.executable, ...translated.args);
     }
 
-    return this.rawWsl(wslArgs, req.timeoutMs ?? 180_000, req.maxOutputChars, req.executable, req.args);
+    return this.rawWsl(
+      wslArgs,
+      req.timeoutMs ?? 180_000,
+      req.maxOutputChars,
+      req.executable,
+      req.args,
+    );
   }
 
   private rawWsl(

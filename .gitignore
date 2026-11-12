@@ -36,6 +36,9 @@ server/dist/
 /data/
 server/data/
 devops/.plans/
+devops/terraform/local-lab/generated/
+devops/terraform/local-lab/.terraform/
+
 **/*.tfstate
 **/*.tfstate.*
 **/*.tfplan

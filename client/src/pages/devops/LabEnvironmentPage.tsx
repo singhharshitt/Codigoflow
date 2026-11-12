@@ -7,12 +7,18 @@ export function LabEnvironmentPage() {
   const [loading, setLoading] = useState(true);
   const [preflight, setPreflight] = useState<Record<string, unknown> | null>(null);
   const [status, setStatus] = useState<Record<string, unknown> | null>(null);
+  const [pipeline, setPipeline] = useState<Record<string, unknown> | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [pf, st] = await Promise.all([devopsApi.preflight(), devopsApi.status()]);
+    const [pf, st, pl] = await Promise.all([
+      devopsApi.preflight(),
+      devopsApi.status(),
+      devopsApi.pipeline(),
+    ]);
     if (pf.success) setPreflight(pf.data as Record<string, unknown>);
     if (st.success) setStatus(st.data as Record<string, unknown>);
+    if (pl.success) setPipeline(pl.data as Record<string, unknown>);
     setLoading(false);
   }, []);
 
@@ -65,6 +71,22 @@ export function LabEnvironmentPage() {
                 ))}
               </div>
             )}
+          </Card>
+
+          <Card>
+            <div className="section-title mb-2">Pipeline readiness</div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <Badge variant={pipeline?.pipelineExecutable ? 'success' : 'warning'}>
+                pipelineExecutable={String(pipeline?.pipelineExecutable ?? false)}
+              </Badge>
+              <Badge variant={pipeline?.realInfrastructureExecutable ? 'success' : 'warning'}>
+                realInfrastructureExecutable=
+                {String(pipeline?.realInfrastructureExecutable ?? false)}
+              </Badge>
+            </div>
+            <pre className="text-xs font-mono text-cf-muted whitespace-pre-wrap max-h-64 overflow-auto">
+              {JSON.stringify(pipeline?.stages ?? pipeline, null, 2)}
+            </pre>
           </Card>
 
           <Card>

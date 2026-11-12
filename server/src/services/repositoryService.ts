@@ -376,6 +376,97 @@ export async function pushChanges(
   });
 }
 
+/** Inspect a local path without registering — used by the onboarding UI. */
+export async function inspectLocalRepository(inputPath: string): Promise<{
+  path: string;
+  exists: boolean;
+  isGit: boolean;
+  alreadyRegistered: boolean;
+  registeredId?: string;
+  nameHint: string;
+  branch?: string;
+  remoteUrl?: string;
+  status?: {
+    staged: number;
+    unstaged: number;
+    untracked: number;
+  };
+}> {
+  if (!inputPath || typeof inputPath !== 'string') {
+    throw createError('Repository path is required', 400, 'INVALID_PATH');
+  }
+  if (inputPath.includes('..')) {
+    throw createError('Path traversal is not allowed', 400, 'INVALID_PATH');
+  }
+  const absPath = path.resolve(inputPath);
+
+  const exists = fs.existsSync(absPath) && fs.statSync(absPath).isDirectory();
+  if (!exists) {
+    return {
+      path: absPath,
+      exists: false,
+      isGit: false,
+      alreadyRegistered: false,
+      nameHint: path.basename(absPath) || 'repository',
+    };
+  }
+
+  const db = getDb();
+  const existing = asRow<Repository | undefined>(
+    db.prepare('SELECT * FROM repositories WHERE path = ?').get(absPath),
+  );
+
+  const isGit = await isGitRepository(absPath);
+  if (!isGit) {
+    return {
+      path: absPath,
+      exists: true,
+      isGit: false,
+      alreadyRegistered: Boolean(existing),
+      registeredId: existing?.id,
+      nameHint: path.basename(absPath),
+    };
+  }
+
+  let branch: string | undefined;
+  let remoteUrl: string | undefined;
+  let status: { staged: number; unstaged: number; untracked: number } | undefined;
+
+  try {
+    const [branchResult, remoteResult, statusResult] = await Promise.all([
+      runGitCommand(absPath, ['rev-parse', '--abbrev-ref', 'HEAD']),
+      runGitCommand(absPath, ['remote', 'get-url', 'origin']).catch(() => ({
+        exitCode: 1,
+        stdout: '',
+        stderr: '',
+      })),
+      runGitCommand(absPath, ['status', '--porcelain=v1']),
+    ]);
+    branch = branchResult.stdout.trim() || undefined;
+    if (remoteResult.exitCode === 0) remoteUrl = remoteResult.stdout.trim() || undefined;
+    const parsed = parseGitStatus(statusResult.stdout);
+    status = {
+      staged: parsed.staged.length,
+      unstaged: parsed.unstaged.length,
+      untracked: parsed.untracked.length,
+    };
+  } catch {
+    // Best-effort inspection
+  }
+
+  return {
+    path: absPath,
+    exists: true,
+    isGit: true,
+    alreadyRegistered: Boolean(existing),
+    registeredId: existing?.id,
+    nameHint: existing?.name ?? path.basename(absPath),
+    branch,
+    remoteUrl,
+    status,
+  };
+}
+
 export async function cloneRepository(input: {
   url: string;
   destination: string;

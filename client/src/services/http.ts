@@ -3,10 +3,16 @@ import type { ApiResponse } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
+/**
+ * Browser API client.
+ * Privileged DevOps mutations use HttpOnly session cookies (POST /api/auth/login).
+ * Never embed DEVOPS_API_TOKEN in Vite env — it would ship in the JS bundle.
+ */
 export const http = axios.create({
   baseURL: BASE_URL,
   timeout: 30_000,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 });
 
 export class ApiClientError extends Error {
@@ -25,7 +31,12 @@ export class ApiClientError extends Error {
 
 export async function apiRequest<T>(
   path: string,
-  options?: { method?: string; data?: unknown; params?: Record<string, unknown> },
+  options?: {
+    method?: string;
+    data?: unknown;
+    params?: Record<string, unknown>;
+    timeout?: number;
+  },
 ): Promise<ApiResponse<T>> {
   try {
     const res = await http.request<ApiResponse<T>>({
@@ -33,6 +44,7 @@ export async function apiRequest<T>(
       method: options?.method ?? 'GET',
       data: options?.data,
       params: options?.params,
+      timeout: options?.timeout,
     });
     return res.data;
   } catch (err) {
