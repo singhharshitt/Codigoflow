@@ -2,7 +2,16 @@ import { createError } from '../../middleware/errorHandler';
 
 export type DeploymentAction = 'deploy-nginx' | 'rollback-nginx';
 
-const FASTAPI_BASE_URL = 'http://127.0.0.1:8000';
+/**
+ * FastAPI deployment service base URL.
+ * Local default targets loopback (use SSH tunnel to reach EC2 without public exposure).
+ * Override with DEPLOYMENT_API_BASE_URL — never commit real tokens.
+ */
+const FASTAPI_BASE_URL = (
+  process.env.DEPLOYMENT_API_BASE_URL ||
+  process.env.FASTAPI_BASE_URL ||
+  'http://127.0.0.1:8000'
+).replace(/\/$/, '');
 const DEPLOYMENT_TIMEOUT_MS = 190_000;
 
 export async function executeDeployment(

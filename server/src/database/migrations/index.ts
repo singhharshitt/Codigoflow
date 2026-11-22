@@ -8,12 +8,53 @@ interface Migration {
   sql: string;
 }
 
+/**
+ * Resolve the directory that contains *.sql migration files.
+ *
+ * Dev (tsx):   __dirname === server/src/database/migrations
+ * Prod (tsc):  __dirname === server/dist/database/migrations
+ *
+ * `tsc` does not copy .sql assets, so production builds must either
+ * copy them into dist (see package.json build) or fall back to src/.
+ */
+export function resolveMigrationsDir(): string {
+  const candidates = [
+    path.join(__dirname),
+    path.join(__dirname, '..', '..', '..', 'src', 'database', 'migrations'),
+    path.join(process.cwd(), 'src', 'database', 'migrations'),
+    path.join(process.cwd(), 'dist', 'database', 'migrations'),
+    path.join(process.cwd(), 'server', 'src', 'database', 'migrations'),
+    path.join(process.cwd(), 'server', 'dist', 'database', 'migrations'),
+  ];
+
+  for (const dir of candidates) {
+    try {
+      if (!fs.existsSync(dir)) continue;
+      const sqlFiles = fs.readdirSync(dir).filter((f) => f.endsWith('.sql'));
+      if (sqlFiles.length > 0) return path.resolve(dir);
+    } catch {
+      /* try next */
+    }
+  }
+
+  throw new Error(
+    'No SQL migration files found. Ensure *.sql files exist under src/database/migrations ' +
+      '(and are copied to dist/database/migrations for production starts).',
+  );
+}
+
 function loadSqlMigrations(): Migration[] {
-  const dir = path.join(__dirname);
+  const dir = resolveMigrationsDir();
   const files = fs
     .readdirSync(dir)
     .filter((f) => f.endsWith('.sql'))
     .sort();
+
+  if (files.length === 0) {
+    throw new Error(`Migration directory is empty: ${dir}`);
+  }
+
+  logger.debug({ migrationsDir: dir, files }, 'Loading SQL migrations');
 
   return files.map((file) => ({
     id: file.replace(/\.sql$/, ''),
