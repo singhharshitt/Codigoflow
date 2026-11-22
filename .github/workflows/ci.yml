@@ -1,0 +1,90 @@
+name: CodigoFlow CI
+
+on:
+  push:
+    branches:
+      - main
+      - feature/github-actions-ci
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    name: Node.js and React
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript checks
+        run: npm run typecheck
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run backend tests
+        run: npm test
+
+  python:
+    name: FastAPI Python Syntax
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate Python syntax
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          files = sorted(Path("backend").glob("*.py"))
+          if not files:
+              raise SystemExit("No Python files found")
+
+          for file in files:
+              ast.parse(file.read_text(), filename=str(file))
+              print(f"PASS: {file}")
+          PY
+
+  ansible:
+    name: Ansible Syntax
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: python3 -m pip install --user ansible-core
+
+      - name: Install Docker Ansible collection
+        run: ~/.local/bin/ansible-galaxy collection install community.docker
+
+      - name: Validate playbooks
+        run: |
+          for playbook in ansible/*.yml; do
+            ~/.local/bin/ansible-playbook \
+              -i 'localhost,' \
+              --syntax-check "$playbook"
+          done
