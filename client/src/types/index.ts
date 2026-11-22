@@ -79,6 +79,9 @@ export interface AIStatus {
   configured: boolean;
   model: string;
   baseUrl: string;
+  provider?: string;
+  /** Count of server-side keys available for failover (never the secret values) */
+  keySlots?: number;
 }
 
 // Job types

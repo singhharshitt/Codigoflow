@@ -16,15 +16,23 @@ const configSchema = z.object({
   DATABASE_PATH: z.string().default('./data/codigoflow.db'),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
 
-  // NVIDIA (preferred) + legacy OpenAI-compatible fallbacks
+  // Preferred NVIDIA NIM
   NVIDIA_API_KEY: z.string().optional(),
-  AI_API_KEY: z.string().optional(),
   NVIDIA_BASE_URL: z.string().optional(),
-  AI_BASE_URL: z.string().optional(),
   NVIDIA_MODEL: z.string().optional(),
-  AI_MODEL: z.string().optional(),
   NVIDIA_MAX_TOKENS: z.coerce.number().int().positive().default(2048),
   NVIDIA_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.3),
+
+  // Project LLM keys (OpenAI-compatible / NVIDIA NIM)
+  LLM_API_KEY: z.string().optional(),
+  LLM_API_KEY2: z.string().optional(),
+  LLM_BASE_URL: z.string().optional(),
+  LLM_MODEL: z.string().optional(),
+
+  // Legacy aliases
+  AI_API_KEY: z.string().optional(),
+  AI_BASE_URL: z.string().optional(),
+  AI_MODEL: z.string().optional(),
 
   GITHUB_TOKEN: z.string().optional(),
 });
@@ -39,29 +47,60 @@ if (!parsed.success) {
 
 const raw = parsed.data;
 
-/** Effective API key — prefer NVIDIA_API_KEY, fallback AI_API_KEY. Never log this. */
-const aiApiKey = (raw.NVIDIA_API_KEY || raw.AI_API_KEY || '').trim() || undefined;
+function uniqNonEmpty(keys: Array<string | undefined>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const k of keys) {
+    const v = (k || '').trim();
+    if (!v || seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+  }
+  return out;
+}
+
+/**
+ * Key priority (server-only — never VITE_*):
+ * 1. NVIDIA_API_KEY
+ * 2. LLM_API_KEY
+ * 3. AI_API_KEY (legacy)
+ * 4. LLM_API_KEY2 (failover / secondary)
+ */
+const aiApiKeys = uniqNonEmpty([
+  raw.NVIDIA_API_KEY,
+  raw.LLM_API_KEY,
+  raw.AI_API_KEY,
+  raw.LLM_API_KEY2,
+]);
+
+const aiApiKey = aiApiKeys[0];
 
 const aiBaseUrl = (
   raw.NVIDIA_BASE_URL ||
+  raw.LLM_BASE_URL ||
   raw.AI_BASE_URL ||
   NVIDIA_DEFAULT_BASE_URL
 ).replace(/\/$/, '');
 
-const aiModel = raw.NVIDIA_MODEL || raw.AI_MODEL || NVIDIA_DEFAULT_MODEL;
+const aiModel =
+  raw.NVIDIA_MODEL || raw.LLM_MODEL || raw.AI_MODEL || NVIDIA_DEFAULT_MODEL;
 
 export const config = {
   ...raw,
-  /** Resolved AI credentials — prefer NVIDIA_* */
+  /** Primary resolved key — never log */
   AI_API_KEY: aiApiKey,
+  /** Ordered unique keys for primary → secondary failover */
+  AI_API_KEYS: aiApiKeys,
   AI_BASE_URL: aiBaseUrl,
   AI_MODEL: aiModel,
   NVIDIA_API_KEY: raw.NVIDIA_API_KEY?.trim() || undefined,
   NVIDIA_BASE_URL: aiBaseUrl,
   NVIDIA_MODEL: aiModel,
+  LLM_API_KEY: raw.LLM_API_KEY?.trim() || undefined,
+  LLM_API_KEY2: raw.LLM_API_KEY2?.trim() || undefined,
 };
 
-export const isAIConfigured = (): boolean => Boolean(config.AI_API_KEY && config.AI_API_KEY.length > 0);
+export const isAIConfigured = (): boolean => config.AI_API_KEYS.length > 0;
 
 export const isGitHubConfigured = (): boolean =>
   Boolean(config.GITHUB_TOKEN && config.GITHUB_TOKEN.length > 0);
@@ -71,3 +110,5 @@ export const getAIProviderLabel = (): string => {
   if (config.AI_BASE_URL.includes('nvidia.com')) return 'nvidia';
   return 'openai-compatible';
 };
+
+export const getConfiguredAiKeyCount = (): number => config.AI_API_KEYS.length;

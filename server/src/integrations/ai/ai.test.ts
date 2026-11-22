@@ -10,9 +10,11 @@ describe('getAIStatus', () => {
     const status = getAIStatus();
     expect(JSON.stringify(status)).not.toMatch(/sk-|nvapi-/i);
     expect(status).not.toHaveProperty('apiKey');
+    expect(status).not.toHaveProperty('LLM_API_KEY');
     expect(typeof status.model).toBe('string');
     expect(typeof status.baseUrl).toBe('string');
     expect(typeof status.configured).toBe('boolean');
+    expect(typeof status.keySlots).toBe('number');
   });
 
   it('returns provider label', () => {
