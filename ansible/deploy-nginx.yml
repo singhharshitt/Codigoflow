@@ -1,0 +1,27 @@
+---
+- name: Deploy Nginx using Docker
+  hosts: managed
+  become: true
+
+  tasks:
+    - name: Ensure Nginx container is running
+      community.docker.docker_container:
+        name: codigoflow-nginx
+        image: nginx:stable-alpine
+        state: started
+        pull: false
+        restart_policy: unless-stopped
+        published_ports:
+          - "127.0.0.1:8080:80"
+
+    - name: Verify Nginx HTTP health
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8080/
+        method: GET
+        status_code: 200
+        return_content: false
+        timeout: 5
+      register: nginx_health
+      retries: 5
+      delay: 3
+      until: nginx_health.status == 200

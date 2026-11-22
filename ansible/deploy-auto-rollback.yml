@@ -1,0 +1,60 @@
+---
+- name: Deploy Nginx with automatic rollback
+  hosts: managed
+  become: true
+
+  vars:
+    deployment_image: nginx:stable-alpine
+    rollback_image: codigoflow-nginx:rollback-v1
+
+  tasks:
+    - name: Deploy and verify Nginx
+      block:
+        - name: Deploy Nginx container
+          community.docker.docker_container:
+            name: codigoflow-nginx
+            image: "{{ deployment_image }}"
+            state: started
+            pull: false
+            image_name_mismatch: recreate
+            restart_policy: unless-stopped
+            published_ports:
+              - "127.0.0.1:8080:80"
+
+        - name: Verify deployment health
+          check_mode: false
+          ansible.builtin.uri:
+            url: http://127.0.0.1:8080/
+            status_code: 200
+            timeout: 5
+          register: deployment_health
+          retries: 5
+          delay: 3
+          until: deployment_health.status | default(0) == 200
+
+      rescue:
+        - name: Restore previous Nginx image
+          community.docker.docker_container:
+            name: codigoflow-nginx
+            image: "{{ rollback_image }}"
+            state: started
+            pull: false
+            image_name_mismatch: recreate
+            restart_policy: unless-stopped
+            published_ports:
+              - "127.0.0.1:8080:80"
+
+        - name: Verify rollback health
+          check_mode: false
+          ansible.builtin.uri:
+            url: http://127.0.0.1:8080/
+            status_code: 200
+            timeout: 5
+          register: rollback_health
+          retries: 5
+          delay: 3
+          until: rollback_health.status | default(0) == 200
+
+        - name: Report deployment failure after rollback
+          ansible.builtin.fail:
+            msg: "Deployment failed. Rollback completed and health check passed."
