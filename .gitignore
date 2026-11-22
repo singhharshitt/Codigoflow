@@ -134,3 +134,24 @@ docker-compose.*.local.yml
 .dynamodb/
 .tern-port
 .vscode-test/
+
+# ── CodigoFlow EC2 / FastAPI automation ──
+# Python virtual environments and caches
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local deployment runtime
+.deployment.lock
+*.bak
+*.pre-*
+
+# EC2-specific Ansible files
+ansible/inventory.ini
+ansible/test-auto-rollback.yml
+
+# SSH credentials
+id_rsa
+id_ed25519

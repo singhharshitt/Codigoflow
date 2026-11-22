@@ -1,0 +1,28 @@
+---
+- name: Roll back CodigoFlow Nginx deployment
+  hosts: managed
+  become: true
+
+  tasks:
+    - name: Restore previous Nginx container
+      community.docker.docker_container:
+        name: codigoflow-nginx
+        image: codigoflow-nginx:rollback-v1
+        state: started
+        pull: false
+        image_name_mismatch: recreate
+        restart_policy: unless-stopped
+        published_ports:
+          - "127.0.0.1:8080:80"
+
+    - name: Verify restored Nginx health
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8080/
+        method: GET
+        status_code: 200
+        timeout: 5
+      register: rollback_health
+      retries: 5
+      delay: 3
+      until: rollback_health.status == 200
+      when: not ansible_check_mode
