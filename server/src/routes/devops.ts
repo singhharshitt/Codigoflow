@@ -4,6 +4,7 @@ import { detectDevOpsTools } from '../devops/services/toolDetection';
 import { runDevOpsPreflight, getDevOpsWorkspaceRoot } from '../devops/services/preflight';
 import terraformRouter from './devopsTerraform';
 import ansibleRouter from './devopsAnsible';
+import deploymentRouter from './devopsDeployment';
 import puppetRouter from './devopsPuppet';
 import nagiosRouter from './devopsNagios';
 import labRouter from './devopsLab';
@@ -57,6 +58,7 @@ router.get('/pipeline', async (_req: Request, res: Response, next: NextFunction)
 
 router.use('/terraform', protectMutations, terraformRouter);
 router.use('/ansible', protectMutations, ansibleRouter);
+router.use('/deployment', deploymentRouter);
 router.use('/puppet', protectMutations, puppetRouter);
 router.use('/nagios', protectMutations, nagiosRouter);
 router.use('/lab', labRouter);

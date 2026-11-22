@@ -1,6 +1,20 @@
 import { apiRequest } from './http';
 
 export const devopsApi = {
+  deployment: {
+    deploy: () =>
+      apiRequest('/devops/deployment/deploy', {
+        method: 'POST',
+        data: {},
+        timeout: 200_000,
+      }),
+    rollback: () =>
+      apiRequest('/devops/deployment/rollback', {
+        method: 'POST',
+        data: {},
+        timeout: 200_000,
+      }),
+  },
   status: () => apiRequest('/devops/status'),
   preflight: () => apiRequest('/devops/preflight'),
   pipeline: () => apiRequest('/devops/pipeline'),
