@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { devopsApi } from '../../services/devopsApi';
-import { PageBackground } from '../../components/shared';
 import { PageHeader, Button, Alert, Card, Badge, LoadingSpinner } from '../../components/ui';
 
 export function TerraformPage() {
@@ -46,7 +45,6 @@ export function TerraformPage() {
 
   return (
     <div className="page-shell relative">
-      <PageBackground />
       <PageHeader
         title="Terraform"
         description="Format, init, validate, plan, approve, and apply saved plans under devops/terraform."

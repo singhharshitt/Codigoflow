@@ -12,7 +12,7 @@ import {
   Select,
   Button,
 } from '../components/ui';
-import { PageBackground, SpiderEmblem } from '../components/shared';
+import { CodigoMark } from '../components/shared';
 import type { AIStatus, DockerStatus } from '../types';
 
 type SettingsTab = 'general' | 'integrations';
@@ -61,7 +61,6 @@ export function SettingsPage() {
 
   return (
     <div className="page-shell relative">
-      <PageBackground />
       <PageHeader
         title="Settings & Integrations"
         description="Preferences stay in the browser. Secrets and provider keys remain on the server."
@@ -172,7 +171,7 @@ export function SettingsPage() {
               detail={
                 aiStatus
                   ? `${aiStatus.model} · ${aiStatus.baseUrl}`
-                  : 'Configure AI_API_KEY, AI_BASE_URL, and AI_MODEL on the server'
+                  : 'Set LLM_API_KEY (or NVIDIA_API_KEY) in server/.env and restart the server'
               }
             />
           </div>
@@ -195,7 +194,7 @@ export function SettingsPage() {
           </Card>
 
           <div className="flex items-center gap-3 text-xs text-cf-faint">
-            <SpiderEmblem size={18} />
+            <CodigoMark size={18} tile={false} />
             <Button variant="secondary" size="sm" onClick={() => void fetchHealth()}>
               Refresh status
             </Button>

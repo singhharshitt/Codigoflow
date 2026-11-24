@@ -9,12 +9,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />
     <Toaster
       theme="dark"
-      position="top-right"
+      position="bottom-right"
       toastOptions={{
         style: {
-          background: '#101D45',
-          border: '1px solid #263968',
-          color: '#F4F7FF',
+          background: '#1A1F2A',
+          border: '1px solid #2A3040',
+          color: '#ECEEF3',
         },
       }}
     />

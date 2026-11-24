@@ -1,7 +1,29 @@
 import { apiRequest } from './http';
 
+export type DeploymentConnectionState =
+  | 'ready'
+  | 'not_configured'
+  | 'url_not_allowed'
+  | 'unreachable'
+  | 'timeout'
+  | 'unhealthy'
+  | 'auth_failed';
+
+export interface DeploymentConnectionStatus {
+  state: DeploymentConnectionState;
+  target: string | null;
+  tokenConfigured: boolean;
+  reachable: boolean;
+  authenticated: boolean;
+  latencyMs: number | null;
+  message: string;
+  checkedAt: string;
+}
+
 export const devopsApi = {
   deployment: {
+    status: () =>
+      apiRequest<DeploymentConnectionStatus>('/devops/deployment/status', { timeout: 15_000 }),
     deploy: () =>
       apiRequest('/devops/deployment/deploy', {
         method: 'POST',

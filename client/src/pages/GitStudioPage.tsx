@@ -15,7 +15,6 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { PageBackground } from '../components/shared';
 import {
   Alert,
   Badge,
@@ -428,7 +427,6 @@ export function GitStudioPage() {
   if (!reposLoading && repositories.length === 0) {
     return (
       <div className="relative">
-        <PageBackground showWeb={false} showGlow />
         <div className="card mt-4 relative z-10">
           <EmptyState
             icon={FolderGit2}
@@ -442,7 +440,6 @@ export function GitStudioPage() {
 
   return (
     <div className="relative flex flex-col gap-4 animate-fade-in min-h-[calc(100vh-7rem)]">
-      <PageBackground showWeb={false} showGlow />
 
       <PageHeader
         title="Git Studio"
@@ -721,7 +718,7 @@ export function GitStudioPage() {
               </div>
 
               {status && status.staged.length === 0 && (
-                <p className="text-[10px] text-cf-faint flex items-center gap-1">
+                <p className="text-xs text-cf-faint flex items-center gap-1">
                   Stage files before committing. Files are never auto-staged.
                 </p>
               )}
@@ -744,10 +741,10 @@ export function GitStudioPage() {
                       className="p-2.5 rounded-lg border border-cf-border/60 bg-cf-navy/30 hover:bg-cf-elevated/50 transition-colors"
                     >
                       <p className="text-xs text-cf-text line-clamp-2 mb-1">{c.message}</p>
-                      <p className="font-mono text-[10px] text-cf-faint">
+                      <p className="font-mono text-xs text-cf-faint">
                         {c.shortHash} · {c.author}
                       </p>
-                      <div className="flex gap-2 mt-1 font-mono text-[10px]">
+                      <div className="flex gap-2 mt-1 font-mono text-xs">
                         {c.insertions > 0 && <span className="text-cf-success">+{c.insertions}</span>}
                         {c.deletions > 0 && <span className="text-cf-error">-{c.deletions}</span>}
                       </div>
@@ -856,7 +853,7 @@ function DiffPanelTitle({ viewedFile }: { viewedFile: ChangedFile | null }) {
     <div className="min-w-0">
       <h2 className="text-sm font-semibold text-cf-text">Diff viewer</h2>
       {viewedFile && (
-        <p className="font-mono text-[10px] text-cf-faint truncate">{viewedFile.path}</p>
+        <p className="font-mono text-xs text-cf-faint truncate">{viewedFile.path}</p>
       )}
     </div>
   );

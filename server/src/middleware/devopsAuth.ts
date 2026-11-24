@@ -2,7 +2,8 @@ import type { Request, Response, NextFunction } from 'express';
 import { timingSafeEqual } from 'crypto';
 import { createError } from './errorHandler';
 import { config } from '../config';
-import { assertTrustedOrigin, readSession } from '../auth/session';
+import { assertTrustedOrigin, hasOperatorAccess, readSession } from '../auth/session';
+import { countUsers } from '../auth/users';
 import { logger } from '../utils/logger';
 
 function safeEqual(a: string, b: string): boolean {
@@ -44,27 +45,31 @@ export function requireDevOpsMutationAuth(req: Request, _res: Response, next: Ne
     }
 
     const expected = (process.env.DEVOPS_API_TOKEN || '').trim();
+    const hasAccounts = countUsers() > 0;
     const enforceAuth =
-      Boolean(expected) || config.NODE_ENV === 'production' || process.env.DEVOPS_ENFORCE_TOKEN === 'true';
+      Boolean(expected) ||
+      hasAccounts ||
+      config.NODE_ENV === 'production' ||
+      process.env.DEVOPS_ENFORCE_TOKEN === 'true';
 
     if (!enforceAuth) {
       next();
       return;
     }
 
-    if (!expected) {
+    if (!expected && !hasAccounts) {
       throw createError(
-        'DEVOPS_API_TOKEN must be configured to authorize privileged DevOps operations',
+        'Create a CódigoFlow account (or set DEVOPS_API_TOKEN) to authorize privileged DevOps operations',
         503,
         'DEVOPS_TOKEN_NOT_CONFIGURED',
       );
     }
 
     const session = readSession(req);
-    if (session?.role === 'operator') {
+    if (hasOperatorAccess(session)) {
       assertTrustedOrigin(req);
       logger.info(
-        { path: req.path, method: req.method, jti: session.jti },
+        { path: req.path, method: req.method, jti: session!.jti, user: session!.sub ?? 'token-admin' },
         'Privileged DevOps operation authorized via session',
       );
       next();
@@ -76,7 +81,7 @@ export function requireDevOpsMutationAuth(req: Request, _res: Response, next: Ne
     const provided = match?.[1]?.trim() || '';
     // Intentionally do NOT accept x-devops-token from browsers in docs;
     // Bearer remains for local CLI/automation only.
-    if (!provided || !safeEqual(provided, expected)) {
+    if (!expected || !provided || !safeEqual(provided, expected)) {
       throw createError('Unauthorized DevOps mutation', 401, 'DEVOPS_UNAUTHORIZED');
     }
 

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { devopsApi } from '../../services/devopsApi';
-import { PageBackground } from '../../components/shared';
 import { PageHeader, Button, Alert, Card, Badge, LoadingSpinner } from '../../components/ui';
 
 export function LabEnvironmentPage() {
@@ -31,7 +30,6 @@ export function LabEnvironmentPage() {
 
   return (
     <div className="page-shell relative">
-      <PageBackground />
       <PageHeader
         title="Lab Environment"
         description="WSL2 Ubuntu, SSH control node, or native Linux readiness for CódigoFlow DevOps."

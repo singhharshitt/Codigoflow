@@ -1,11 +1,10 @@
 import { BookOpen, Github, Terminal, Shield } from 'lucide-react';
 import { PageHeader, Card, Alert } from '../components/ui';
-import { PageBackground, SpiderEmblem } from '../components/shared';
+import { CodigoMark } from '../components/shared';
 
 export function HelpPage() {
   return (
     <div className="page-shell relative">
-      <PageBackground />
       <PageHeader
         title="Help & Documentation"
         description="Quick reference for running and extending CódigoFlow"
@@ -36,7 +35,7 @@ export function HelpPage() {
       </Alert>
 
       <div className="relative z-10 flex items-center gap-3 text-xs text-cf-faint">
-        <SpiderEmblem size={20} />
+        <CodigoMark size={20} tile={false} />
         See <code className="font-mono text-cf-muted">docs/api.md</code> and <code className="font-mono text-cf-muted">README.md</code> for full details.
       </div>
     </div>

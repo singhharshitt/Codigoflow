@@ -6,7 +6,7 @@ export type WorkflowNodeData = {
   label: string;
   kind: string;
   config?: Record<string, unknown>;
-  status?: 'idle' | 'running' | 'succeeded' | 'failed' | 'planned';
+  status?: 'idle' | 'running' | 'succeeded' | 'failed' | 'skipped' | 'planned';
 };
 
 interface WorkflowStore {
@@ -49,7 +49,9 @@ export const useWorkflowStore = create<WorkflowStore>()(
       setName: (name) => set({ name }),
       setNodes: (nodes) => set({ nodes }),
       setEdges: (edges) => set({ edges }),
-      selectNode: (id) => set({ selectedNodeId: id }),
+      // No-op when unchanged: React Flow re-emits selection on every render and an
+      // unconditional set() here caused an infinite render loop (blank page).
+      selectNode: (id) => set((s) => (s.selectedNodeId === id ? s : { selectedNodeId: id })),
       updateNodeData: (id, data) =>
         set((s) => ({
           nodes: s.nodes.map((n) =>

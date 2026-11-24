@@ -74,7 +74,7 @@ export default function App() {
   }, [fetchHealth, fetchRepositories]);
 
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/" element={<AppShell />}>
           <Route

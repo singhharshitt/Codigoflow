@@ -42,11 +42,14 @@ export function errorHandler(
     logger.warn({ code, message: err.message, path: req.path }, 'Client error');
   }
 
+  const scrubMessage =
+    statusCode >= 500 && (code === 'INTERNAL_ERROR' || !apiErr.code);
+
   res.status(statusCode).json({
     success: false,
     error: {
       code,
-      message: statusCode >= 500 ? 'An internal server error occurred' : err.message,
+      message: scrubMessage ? 'An internal server error occurred' : err.message,
     },
   });
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Plus,
@@ -13,7 +13,7 @@ import {
   GitCommit,
   FolderGit2,
   RefreshCw,
-  Sparkles,
+  ScanSearch,
   Workflow,
 } from 'lucide-react';
 import {
@@ -28,7 +28,7 @@ import {
   LoadingSpinner,
   Card,
 } from '../components/ui';
-import { PageBackground, SpiderEmblem } from '../components/shared';
+import { CodigoMark } from '../components/shared';
 import { useRepoStore } from '../stores/repoStore';
 import { repositoriesApi } from '../services/api';
 import { AddRepositoryModal } from '../features/repositories/AddRepositoryModal';
@@ -184,6 +184,14 @@ export function RepositoriesPage() {
     }
   }
 
+  // Ctrl/⌘+K from the top bar lands here with ?focus=search.
+  const location = useLocation();
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('focus') === 'search') {
+      document.getElementById('repo-search')?.focus();
+    }
+  }, [location.search, location.key]);
+
   async function handleRegistered(repo: Repository) {
     selectRepository(repo.id);
     await fetchRepositories();
@@ -191,7 +199,6 @@ export function RepositoriesPage() {
 
   return (
     <div className="page-shell relative space-y-6 animate-fade-in">
-      <PageBackground />
 
       <div className="relative z-10">
       <PageHeader
@@ -214,8 +221,9 @@ export function RepositoriesPage() {
 
       <div className="relative z-10">
         <Input
+          id="repo-search"
           label="Search repositories"
-          placeholder="Filter by name or path…"
+          placeholder="Name or path"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-md"
@@ -333,7 +341,7 @@ export function RepositoriesPage() {
       )}
 
       <div className="relative z-10 flex items-center gap-2 text-xs text-cf-faint pb-2">
-        <SpiderEmblem size={18} />
+        <CodigoMark size={18} tile={false} />
         <span>
           Registering only links CódigoFlow to a folder on your machine — removing a registration never deletes
           repository files.
@@ -411,7 +419,7 @@ function RepoTableSection({
   return (
     <>
       <tr
-        className={isSelected ? 'bg-cf-cyan/5' : undefined}
+        className={isSelected ? 'bg-white/[0.02]' : undefined}
         onClick={onToggle}
         role="button"
         tabIndex={0}
@@ -437,7 +445,7 @@ function RepoTableSection({
           </div>
         </td>
         <td className="hidden lg:table-cell">
-          <span className="font-mono text-xs text-cf-muted truncate max-w-[240px] inline-block" title={repo.path}>
+          <span className="font-mono text-xs text-cf-muted truncate max-w-[200px] inline-block" title={repo.path}>
             {repo.path}
           </span>
         </td>
@@ -459,16 +467,17 @@ function RepoTableSection({
           {formatRepoDate(repo.created_at)}
         </td>
         <td className="text-right" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-end gap-1 flex-wrap">
+          <div className="flex flex-nowrap justify-end gap-1 whitespace-nowrap">
             <Button
               variant="secondary"
               size="sm"
               onClick={onAnalyze}
               loading={analysisBusy}
               title="Analyse repository stack"
+              aria-label="Analyse repository stack"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span className="hidden xl:inline">Analyse</span>
+              <ScanSearch className="w-3.5 h-3.5" />
+              <span className="hidden 2xl:inline">Analyse</span>
             </Button>
             <Button
               variant="secondary"
@@ -476,13 +485,14 @@ function RepoTableSection({
               onClick={onProposeDeploy}
               loading={analysisBusy}
               title="Propose guided deployment workflow"
+              aria-label="Propose guided deployment workflow"
             >
               <Workflow className="w-3.5 h-3.5" />
-              <span className="hidden xl:inline">Propose</span>
+              <span className="hidden 2xl:inline">Propose</span>
             </Button>
-            <Button variant="cyan" size="sm" onClick={onOpenGitStudio} title="Open Git Studio">
+            <Button variant="cyan" size="sm" onClick={onOpenGitStudio} title="Open Git Studio" aria-label="Open Git Studio">
               <GitBranch className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Git Studio</span>
+              <span className="hidden 2xl:inline">Git Studio</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={onRemove} title="Remove registration" aria-label={`Remove ${repo.name}`}>
               <Trash2 className="w-3.5 h-3.5 text-cf-error" />

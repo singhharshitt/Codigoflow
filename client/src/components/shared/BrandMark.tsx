@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { SpiderEmblem } from './SpiderEmblem';
+import { CodigoMark } from './CodigoMark';
 
 interface BrandMarkProps {
   collapsed?: boolean;
@@ -9,22 +9,20 @@ interface BrandMarkProps {
 export function BrandMark({ collapsed, className }: BrandMarkProps) {
   if (collapsed) {
     return (
-      <div className={clsx('flex justify-center', className)}>
-        <SpiderEmblem size={32} glowing />
+      <div className={clsx('flex justify-center', className)} aria-label="CódigoFlow">
+        <CodigoMark size={32} />
       </div>
     );
   }
 
   return (
     <div className={clsx('flex items-center gap-2.5 min-w-0', className)}>
-      <SpiderEmblem size={32} glowing />
+      <CodigoMark size={32} />
       <div className="min-w-0">
-        <div className="text-sm font-bold text-cf-text leading-tight tracking-tight">
+        <div className="text-base font-medium leading-none text-cf-text">
           Código<span className="text-cf-red">Flow</span>
         </div>
-        <div className="font-display text-[9px] text-cf-cyan tracking-wide leading-tight mt-0.5">
-          CODE → CLOUD
-        </div>
+        <div className="mt-1 text-xs leading-none text-cf-faint">Code to cloud</div>
       </div>
     </div>
   );
