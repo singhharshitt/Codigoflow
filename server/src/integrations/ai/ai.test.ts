@@ -1,9 +1,9 @@
 import { getAIStatus, stripSecrets } from '../../integrations/ai';
-import { resetNvidiaClient } from '../../integrations/ai/nvidia/client';
+import { resetProviderClients } from '../../integrations/ai/providers';
 
 describe('getAIStatus', () => {
   afterEach(() => {
-    resetNvidiaClient();
+    resetProviderClients();
   });
 
   it('does not expose the API key in the response', () => {
@@ -19,7 +19,7 @@ describe('getAIStatus', () => {
 
   it('returns provider label', () => {
     const status = getAIStatus();
-    expect(['none', 'nvidia', 'openai-compatible']).toContain(status.provider);
+    expect(['none', 'nvidia', 'gemini', 'openai', 'openai-compatible']).toContain(status.provider);
   });
 });
 
