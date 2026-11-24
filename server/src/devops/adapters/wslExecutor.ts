@@ -10,7 +10,7 @@ import { translateRequestPathsForWsl } from './pathBridge';
 
 /**
  * Execute allowlisted commands inside a fixed WSL distribution.
- * Uses: wsl -d <distro> -- <executable> <args...>
+ * Uses: wsl -d <distro> --exec <executable> <args...>
  * Never concatenates user strings into a shell.
  */
 export class WslExecutor implements DevOpsExecutor {
@@ -89,7 +89,10 @@ export class WslExecutor implements DevOpsExecutor {
     });
 
     // Special-case: allow bash -lc only for fixed internal probes with allowlisted content
-    const wslArgs = ['-d', this.distro, '--'];
+    // `--exec` runs the program directly. `--` would hand the joined argv to the
+    // distro's default shell, which expands "$1"/"$@" to empty strings and
+    // breaks every cwd-bearing command (and re-introduces shell parsing).
+    const wslArgs = ['-d', this.distro, '--exec'];
     if (translated.cwd) {
       // Use bash -lc with validated cwd and executable/args re-joined safely via "$@"
       // We pass: bash -lc 'cd "$1" && shift && exec "$@"' _ <cwd> <exe> <args...>

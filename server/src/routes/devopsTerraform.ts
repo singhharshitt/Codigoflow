@@ -88,12 +88,12 @@ router.post('/plan', async (req, res, next) => {
   }
 });
 
-router.post('/plans/:planId/approve', (req, res, next) => {
+router.post('/plans/:planId/approve', async (req, res, next) => {
   try {
     const body = z.object({ approvedBy: z.string().min(1).default('operator') }).parse(req.body);
     res.json({
       success: true,
-      data: approveTerraformPlan(req.params.planId, body.approvedBy),
+      data: await approveTerraformPlan(req.params.planId, body.approvedBy),
       message: 'Plan approved',
     });
   } catch (err) {

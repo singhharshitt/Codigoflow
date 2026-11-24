@@ -26,3 +26,10 @@ describe('devops sanitize', () => {
     expect(cleaned).toContain('[redacted]');
   });
 });
+
+describe('redactSecrets output cleanup', () => {
+  it('strips ANSI color codes from tool output', () => {
+    const { redactSecrets } = jest.requireActual('./sanitize') as typeof import('./sanitize');
+    expect(redactSecrets('\u001b[1;31mError: No more routes to ca\u001b[0m')).toBe('Error: No more routes to ca');
+  });
+});

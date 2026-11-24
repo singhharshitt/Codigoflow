@@ -42,3 +42,50 @@ function translateArgForWsl(arg: string): string {
 function looksLikeWindowsAbsolutePath(value: string): boolean {
   return /^[A-Za-z]:[/\\]/.test(value);
 }
+
+/**
+ * Map a host path under the local devops root to the same relative path under
+ * a remote root (SSH control node). Paths outside the local root are returned
+ * unchanged so the remote side reports an honest "not found".
+ * Example: D:\Codigoflow\devops\ansible -> /home/ubuntu/Codigoflow/devops/ansible
+ */
+export function mapLocalPathToRemote(p: string, localRoot: string, remoteRoot: string): string {
+  const norm = (v: string) => v.replace(/\\/g, '/').replace(/\/+$/, '');
+  const local = norm(localRoot);
+  const value = norm(p);
+  const remote = remoteRoot.replace(/\/+$/, '');
+  const caseInsensitive = /^[A-Za-z]:\//.test(local);
+  const hay = caseInsensitive ? value.toLowerCase() : value;
+  const needle = caseInsensitive ? local.toLowerCase() : local;
+  if (hay === needle) return remote;
+  if (hay.startsWith(`${needle}/`)) return `${remote}/${value.slice(local.length + 1)}`;
+  return p;
+}
+
+/** Translate cwd and absolute path arguments for an SSH control node. */
+export function translateRequestPathsForSsh(
+  input: { cwd?: string; args: string[] },
+  localRoot: string,
+  remoteRoot: string | undefined,
+): { cwd?: string; args: string[] } {
+  if (!remoteRoot) return input;
+  const mapValue = (v: string) =>
+    looksLikeWindowsAbsolutePath(v) || v.startsWith('/') ? mapLocalPathToRemote(v, localRoot, remoteRoot) : v;
+  return {
+    cwd: input.cwd ? mapLocalPathToRemote(input.cwd, localRoot, remoteRoot) : undefined,
+    args: input.args.map((arg) => {
+      // key=value / --flag=value: translate only the value side.
+      const eq = arg.indexOf('=');
+      if (eq > 0) return `${arg.slice(0, eq)}=${mapValue(arg.slice(eq + 1))}`;
+      return mapValue(arg);
+    }),
+  };
+}
+
+/**
+ * OpenSSH joins remote argv into ONE string that the remote login shell parses.
+ * Single-quote every element so "$1"/"$@", spaces and globs survive intact.
+ */
+export function quoteForRemoteShell(arg: string): string {
+  return `'${arg.replace(/'/g, `'\\''`)}'`;
+}

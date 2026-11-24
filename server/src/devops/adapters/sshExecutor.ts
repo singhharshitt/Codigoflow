@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import path from 'path';
 import type { ControlNodeInfo, DevOpsExecutor, ExecRequest, ExecResult } from './types';
 import {
   assertSafeArgs,
@@ -7,6 +8,7 @@ import {
   summarizeCommand,
 } from './sanitize';
 import { createError } from '../../middleware/errorHandler';
+import { quoteForRemoteShell, translateRequestPathsForSsh } from './pathBridge';
 
 /**
  * Execute allowlisted commands on a configured SSH control node.
@@ -74,9 +76,17 @@ export class SshExecutor implements DevOpsExecutor {
     assertSafeExecutable(req.executable);
     assertSafeArgs(req.args);
 
-    const remoteArgv = req.cwd
-      ? ['bash', '-lc', 'cd "$1" && shift && exec "$@"', '_', req.cwd, req.executable, ...req.args]
-      : [req.executable, ...req.args];
+    // Host paths (e.g. D:/Codigoflow/devops/ansible) mean nothing on the remote
+    // node; map them under DEVOPS_SSH_REMOTE_ROOT (a checkout of devops/ there).
+    const localRoot = path.resolve(process.cwd(), process.env.DEVOPS_ROOT || '../devops');
+    const translated = translateRequestPathsForSsh(
+      { cwd: req.cwd, args: req.args },
+      localRoot,
+      process.env.DEVOPS_SSH_REMOTE_ROOT?.trim() || undefined,
+    );
+    const remoteArgv = translated.cwd
+      ? ['bash', '-lc', 'cd "$1" && shift && exec "$@"', '_', translated.cwd, req.executable, ...translated.args]
+      : [req.executable, ...translated.args];
 
     // Default to StrictHostKeyChecking=yes (known_hosts required).
     // Lab convenience: DEVOPS_SSH_STRICT_HOST_KEY=accept-new
@@ -97,7 +107,8 @@ export class SshExecutor implements DevOpsExecutor {
     if (this.keyPath) {
       sshArgs.push('-i', this.keyPath);
     }
-    sshArgs.push(`${this.user}@${this.host}`, '--', ...remoteArgv);
+    // One pre-quoted command string: ssh would otherwise join argv unquoted.
+    sshArgs.push(`${this.user}@${this.host}`, '--', remoteArgv.map(quoteForRemoteShell).join(' '));
 
     const started = Date.now();
     const maxChars = req.maxOutputChars ?? 200_000;
