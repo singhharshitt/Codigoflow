@@ -6,6 +6,13 @@ import {
   NVIDIA_DEFAULT_MODEL,
 } from './constants';
 
+// Load order: real environment > server/.env.local (gitignored, machine-specific,
+// e.g. EC2 tunnel settings) > server/.env. dotenv never overrides a value that is
+// already set, so loading .env.local first gives it priority. Skipped under Jest
+// so tests stay hermetic.
+if (!process.env.JEST_WORKER_ID && process.env.NODE_ENV !== 'test') {
+  dotenv.config({ path: path.resolve(__dirname, '../../.env.local') });
+}
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const configSchema = z.object({
@@ -28,6 +35,12 @@ const configSchema = z.object({
   LLM_API_KEY2: z.string().optional(),
   LLM_BASE_URL: z.string().optional(),
   LLM_MODEL: z.string().optional(),
+  // Second provider (e.g. NVIDIA) — see integrations/ai/providers.ts
+  LLM_BASE_URL2: z.string().optional(),
+  LLM_MODEL2: z.string().optional(),
+  LLM_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  LLM_TIMEOUT_MS2: z.coerce.number().int().positive().optional(),
+  LLM_DEFAULT_PROVIDER: z.string().optional(),
 
   // Legacy aliases
   AI_API_KEY: z.string().optional(),
@@ -108,6 +121,7 @@ export const isGitHubConfigured = (): boolean =>
 export const getAIProviderLabel = (): string => {
   if (!isAIConfigured()) return 'none';
   if (config.AI_BASE_URL.includes('nvidia.com')) return 'nvidia';
+  if (config.AI_BASE_URL.includes('generativelanguage.googleapis.com')) return 'gemini';
   return 'openai-compatible';
 };
 

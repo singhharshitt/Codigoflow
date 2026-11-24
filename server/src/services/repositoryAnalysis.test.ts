@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { proposeDeploymentWorkflow } from './repositoryAnalysis';
+import { detectIacMarkers, proposeDeploymentWorkflow } from './repositoryAnalysis';
 
 describe('repositoryAnalysis proposal', () => {
   it('builds a review-only workflow without destructive approve flags', () => {
@@ -44,6 +44,24 @@ describe('static analysis helpers (filesystem)', () => {
     expect(fs.existsSync(path.join(dir, 'package.json'))).toBe(true);
     expect(fs.readFileSync(path.join(dir, 'Dockerfile'), 'utf8')).toContain('EXPOSE 4000');
     // Cleanup
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe('detectIacMarkers', () => {
+  it('finds Terraform/Ansible/Puppet nested under conventional folders like devops/', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cf-iac-'));
+    fs.mkdirSync(path.join(dir, 'devops', 'terraform'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'deploy', 'ansible'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'ops', 'puppet'), { recursive: true });
+    expect(detectIacMarkers(dir)).toEqual({ hasTerraform: true, hasAnsible: true, hasPuppet: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('reports nothing for a repo without IaC folders', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cf-iac-'));
+    fs.mkdirSync(path.join(dir, 'src'));
+    expect(detectIacMarkers(dir)).toEqual({ hasTerraform: false, hasAnsible: false, hasPuppet: false });
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });

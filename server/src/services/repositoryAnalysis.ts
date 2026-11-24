@@ -97,6 +97,20 @@ function detectPort(pkgScripts: Record<string, string> | undefined, dockerfile: 
 /**
  * Static repository analysis — reads files only; never executes package scripts or Docker.
  */
+// IaC often lives one level down (devops/terraform, deploy/ansible, ...).
+// Bounded check of conventional folders only; no recursive walk.
+const IAC_PARENTS = ['', 'devops', 'deploy', 'deployment', 'ops', 'infra', 'infrastructure'];
+
+export function detectIacMarkers(root: string) {
+  const existsInIac = (...names: string[]) =>
+    IAC_PARENTS.some((parent) => names.some((n) => exists(root, parent ? path.join(parent, n) : n)));
+  return {
+    hasTerraform: existsInIac('main.tf', 'terraform') || exists(root, 'infra'),
+    hasAnsible: existsInIac('ansible', 'playbook.yml', 'playbooks'),
+    hasPuppet: existsInIac('manifests', 'puppet'),
+  };
+}
+
 export async function analyzeRepository(repositoryId: string) {
   const repo = getRepository(repositoryId);
   const root = path.resolve(repo.path);
@@ -112,9 +126,7 @@ export async function analyzeRepository(repositoryId: string) {
     exists(root, 'docker-compose.yml') ||
     exists(root, 'docker-compose.yaml') ||
     exists(root, 'compose.yml');
-  const hasTerraform = exists(root, 'main.tf') || exists(root, 'terraform') || exists(root, 'infra');
-  const hasAnsible = exists(root, 'ansible') || exists(root, 'playbook.yml') || exists(root, 'playbooks');
-  const hasPuppet = exists(root, 'manifests') || exists(root, 'puppet');
+  const { hasTerraform, hasAnsible, hasPuppet } = detectIacMarkers(root);
   const hasRequirements = exists(root, 'requirements.txt');
   const hasGoMod = exists(root, 'go.mod');
   const hasCargo = exists(root, 'Cargo.toml');
