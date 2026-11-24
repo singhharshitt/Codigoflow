@@ -1,23 +1,25 @@
 import { getAIStatus, stripSecrets } from '../../integrations/ai';
-import { resetNvidiaClient } from '../../integrations/ai/nvidia/client';
+import { resetProviderClients } from '../../integrations/ai/providers';
 
 describe('getAIStatus', () => {
   afterEach(() => {
-    resetNvidiaClient();
+    resetProviderClients();
   });
 
   it('does not expose the API key in the response', () => {
     const status = getAIStatus();
     expect(JSON.stringify(status)).not.toMatch(/sk-|nvapi-/i);
     expect(status).not.toHaveProperty('apiKey');
+    expect(status).not.toHaveProperty('LLM_API_KEY');
     expect(typeof status.model).toBe('string');
     expect(typeof status.baseUrl).toBe('string');
     expect(typeof status.configured).toBe('boolean');
+    expect(typeof status.keySlots).toBe('number');
   });
 
   it('returns provider label', () => {
     const status = getAIStatus();
-    expect(['none', 'nvidia', 'openai-compatible']).toContain(status.provider);
+    expect(['none', 'nvidia', 'gemini', 'openai', 'openai-compatible']).toContain(status.provider);
   });
 });
 

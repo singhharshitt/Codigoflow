@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-import { runDevOps } from '../../devops/adapters';
+import { resolveExecutor, runDevOps } from '../../devops/adapters';
 import { getDevOpsWorkspaceRoot } from '../../devops/services/preflight';
 import { createError } from '../../middleware/errorHandler';
 import { getDb } from '../../database';
@@ -17,6 +17,39 @@ function plansDir() {
   const dir = path.join(getDevOpsWorkspaceRoot(), '.plans');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+/**
+ * With an SSH control node, Terraform writes plan files on the remote host, not
+ * on this machine (WSL/native share the local filesystem). Plan-file handling
+ * therefore goes through the executor in SSH mode.
+ */
+async function planFilesAreRemote(): Promise<boolean> {
+  const { executor } = await resolveExecutor();
+  return executor.mode === 'ssh';
+}
+
+async function preparePlanFile(planId: string): Promise<string> {
+  const dir = plansDir();
+  if (await planFilesAreRemote()) {
+    const made = await runDevOps({ executable: 'mkdir', args: ['-p', dir], timeoutMs: 15_000 });
+    if (made.exitCode !== 0) {
+      throw createError(made.stderr || 'Could not create the plans directory on the control node', 500, 'TF_PLAN_DIR_FAILED');
+    }
+  }
+  return path.join(dir, `${planId}.tfplan`);
+}
+
+/** sha256 of a saved plan file, or null if it does not exist. */
+async function hashPlanFile(planFile: string): Promise<string | null> {
+  if (await planFilesAreRemote()) {
+    const result = await runDevOps({ executable: 'sha256sum', args: [planFile], timeoutMs: 15_000 });
+    if (result.exitCode !== 0) return null;
+    const digest = result.stdout.trim().split(/\s+/)[0];
+    return /^[a-f0-9]{64}$/.test(digest) ? digest : null;
+  }
+  if (!fs.existsSync(planFile)) return null;
+  return crypto.createHash('sha256').update(fs.readFileSync(planFile)).digest('hex');
 }
 
 export function resolveTerraformProject(projectPath: string): string {
@@ -92,7 +125,7 @@ export async function terraformValidate(projectPath: string) {
 export async function terraformPlan(projectPath: string, workspace = 'default') {
   const cwd = resolveTerraformProject(projectPath);
   const planId = uuidv4();
-  const planFile = path.join(plansDir(), `${planId}.tfplan`);
+  const planFile = await preparePlanFile(planId);
   const result = await tf(
     cwd,
     ['plan', '-input=false', '-no-color', `-out=${planFile}`],
@@ -102,10 +135,10 @@ export async function terraformPlan(projectPath: string, workspace = 'default') 
     // exit 2 can mean changes present depending on -detailed-exitcode; we didn't set that
     throw createError(result.stderr || 'terraform plan failed', 500, 'TF_PLAN_FAILED');
   }
-  if (!fs.existsSync(planFile)) {
+  const hash = await hashPlanFile(planFile);
+  if (!hash) {
     throw createError('Plan file was not created', 500, 'TF_PLAN_MISSING');
   }
-  const hash = crypto.createHash('sha256').update(fs.readFileSync(planFile)).digest('hex');
   const now = Math.floor(Date.now() / 1000);
   getDb()
     .prepare(
@@ -154,15 +187,15 @@ export function getTerraformPlan(planId: string) {
   return row;
 }
 
-export function approveTerraformPlan(planId: string, approvedBy: string) {
+export async function approveTerraformPlan(planId: string, approvedBy: string) {
   const plan = getTerraformPlan(planId);
   if (plan.status !== 'created') {
     throw createError('Only newly created plans can be approved', 400, 'TF_PLAN_NOT_APPROVABLE');
   }
-  if (!fs.existsSync(plan.plan_file_path)) {
+  const hash = await hashPlanFile(plan.plan_file_path);
+  if (!hash) {
     throw createError('Saved plan file missing', 400, 'TF_PLAN_FILE_MISSING');
   }
-  const hash = crypto.createHash('sha256').update(fs.readFileSync(plan.plan_file_path)).digest('hex');
   if (hash !== plan.plan_hash) {
     throw createError('Plan integrity check failed', 409, 'TF_PLAN_TAMPERED');
   }
@@ -189,12 +222,12 @@ export async function terraformApply(planId: string, approve: boolean, approvedB
   }
   let plan = getTerraformPlan(planId);
   if (plan.status === 'created') {
-    plan = approveTerraformPlan(planId, approvedBy || 'operator');
+    plan = await approveTerraformPlan(planId, approvedBy || 'operator');
   }
   if (plan.status !== 'approved') {
     throw createError('Plan must be approved before apply', 400, 'TF_PLAN_NOT_APPROVED');
   }
-  const hash = crypto.createHash('sha256').update(fs.readFileSync(plan.plan_file_path)).digest('hex');
+  const hash = await hashPlanFile(plan.plan_file_path);
   if (hash !== plan.plan_hash) {
     throw createError('Plan integrity check failed before apply', 409, 'TF_PLAN_TAMPERED');
   }

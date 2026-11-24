@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
 import {
   FolderGit2,
@@ -12,8 +13,10 @@ import {
   RefreshCw,
   GitCommit,
   Terminal,
-  Sparkles,
   History,
+  Workflow,
+  AlertTriangle,
+  Check,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -35,7 +38,7 @@ import {
   Card,
   Select,
 } from '../components/ui';
-import { PageBackground, MaskLineArt, SpiderEmblem } from '../components/shared';
+import { CodigoMark } from '../components/shared';
 import { theme } from '../config/theme';
 import { useRepoStore } from '../stores/repoStore';
 import { useAppStore } from '../stores/appStore';
@@ -87,8 +90,8 @@ export function OverviewPage() {
   }, [selectedId]);
 
   async function loadData(isRefresh = false) {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+    // Full-page spinner only on first paint; later loads keep the dashboard visible.
+    if (isRefresh || !loading) setRefreshing(true);
 
     const [containersRes, jobsRes] = await Promise.allSettled([
       dockerApi.containers(true),
@@ -151,7 +154,6 @@ export function OverviewPage() {
   if (loading) {
     return (
       <div className="page-shell relative">
-        <PageBackground />
         <div className="relative z-10 flex items-center justify-center min-h-[16rem]">
           <div className="flex flex-col items-center gap-3">
             <LoadingSpinner size="lg" />
@@ -164,32 +166,27 @@ export function OverviewPage() {
 
   return (
     <div className="page-shell relative">
-      <PageBackground />
 
-      {/* Welcome header */}
-      <section className="relative z-10 overflow-hidden rounded-xl border border-cf-border bg-cf-card/90 backdrop-blur-md p-5 md:p-6">
-        <MaskLineArt className="absolute -right-2 top-1/2 h-28 w-28 -translate-y-1/2 opacity-[0.1] md:right-6 md:h-32 md:w-32" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+      <section className="rounded-2xl border border-cf-border bg-cf-card p-6 md:p-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-cf-cyan">
-              AI-powered DevOps orchestration
-            </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-cf-text">
-              Welcome to Código<span className="text-cf-red">Flow</span>
+            <p className="text-sm text-cf-faint">Overview</p>
+            <h1 className="mt-2 max-w-2xl text-[28px] font-medium leading-tight text-cf-text md:text-[32px]">
+              From a Git repository to running infrastructure, with every step logged
             </h1>
-            <p className="mt-1 max-w-xl text-sm text-cf-muted">
-              Import a repository, review a guided deployment proposal, orchestrate Terraform → Ansible →
-              Puppet → Nagios, and troubleshoot with real execution logs.
+            <p className="mt-3 max-w-xl text-sm leading-6 text-cf-muted">
+              Import a repository, review the proposed workflow, then run Terraform, Ansible, Puppet and Nagios
+              from one place.
             </p>
           </div>
 
-          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end lg:w-auto lg:min-w-[20rem]">
+          <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-end">
             {repositories.length > 0 && (
               <Select
                 label="Active repository"
                 value={selectedId ?? ''}
                 onChange={(e) => selectRepository(e.target.value || null)}
-                className="min-w-[12rem] flex-1"
+                className="min-w-[12rem]"
               >
                 {repositories.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -198,81 +195,48 @@ export function OverviewPage() {
                 ))}
               </Select>
             )}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2">
+              <Button variant="primary" onClick={() => navigate('/repositories')}>
+                <Plus className="h-4 w-4" />
+                Import repository
+              </Button>
+              <Button variant="secondary" onClick={() => navigate('/workflow')}>
+                <Workflow className="h-4 w-4" />
+                Workflows
+              </Button>
               <Button
-                variant="secondary"
-                size="sm"
+                variant="ghost"
                 onClick={() => void loadData(true)}
                 disabled={refreshing}
                 aria-label="Refresh dashboard"
+                title="Refresh"
+                className="px-2.5"
               >
                 <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button variant="primary" size="sm" onClick={() => navigate('/repositories')}>
-                <Plus className="h-4 w-4" />
-                Import repo
-              </Button>
-              <Button variant="cyan" size="sm" onClick={() => navigate('/workflow')}>
-                <Sparkles className="h-4 w-4" />
-                Workflows
-              </Button>
-              <Button variant="secondary" size="sm" onClick={() => navigate('/history')}>
-                <History className="h-4 w-4" />
-                History
-              </Button>
-              <Button variant="secondary" size="sm" onClick={() => navigate('/git')}>
-                <GitBranch className="h-4 w-4" />
-                Git Studio
               </Button>
             </div>
           </div>
         </div>
 
-        <div className="relative mt-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
-          {[
-            {
-              title: '1. Import',
-              body: 'Paste a public GitHub URL — no local path required.',
-              to: '/repositories',
-            },
-            {
-              title: '2. Analyse',
-              body: 'Detect stack, Dockerfile, and env names (no secret values).',
-              to: '/repositories',
-            },
-            {
-              title: '3. Review workflow',
-              body: 'Load a proposed Terraform→Ansible→Puppet→Nagios graph.',
-              to: '/workflow',
-            },
-            {
-              title: '4. Observe',
-              body: 'Track jobs, logs, and AI diagnostics for failures.',
-              to: '/history',
-            },
-          ].map((step) => (
-            <button
-              key={step.title}
-              type="button"
-              onClick={() => navigate(step.to)}
-              className="rounded-lg border border-cf-border/80 bg-cf-navy/40 px-3 py-2.5 text-left hover:border-cf-cyan/40 transition-colors"
-            >
-              <div className="text-xs font-semibold text-cf-cyan">{step.title}</div>
-              <div className="mt-1 text-[11px] text-cf-muted leading-snug">{step.body}</div>
-            </button>
-          ))}
-        </div>
+        <PipelineTrack
+          onNavigate={navigate}
+          done={{
+            import: repositories.length > 0,
+            analyse: Boolean(selectedRepo && status),
+            workflow: false,
+            observe: recentJobs.length > 0,
+          }}
+        />
       </section>
 
       {repositories.length === 0 && (
-        <Alert variant="info" title="No repositories registered" className="relative z-10">
-          Register your first Git repository to unlock status, commits, and automation on this dashboard.
+        <Alert variant="info" title="No repositories yet">
+          Import a GitHub URL or register a local folder to see branch status, commits and workflows here.
         </Alert>
       )}
 
       {/* Stats */}
-      <div className="relative z-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Repositories" value={repositories.length} icon={FolderGit2} color="brand" />
         <StatCard
           label={commitsStatLabel}
@@ -291,14 +255,14 @@ export function OverviewPage() {
 
       {/* Repository overview */}
       <Card
-        className="relative z-10"
+       
         title="Repository overview"
         action={
           selectedRepo ? (
             <button
               type="button"
               onClick={() => navigate('/git')}
-              className="flex items-center gap-1 text-xs text-cf-cyan hover:text-cf-ice"
+              className="flex items-center gap-1 text-xs text-cf-muted transition-colors hover:text-cf-text"
             >
               Open Git Studio <ArrowUpRight className="h-3 w-3" />
             </button>
@@ -311,7 +275,7 @@ export function OverviewPage() {
             <OverviewField
               label="Branch"
               value={
-                <span className="inline-flex items-center gap-1.5 font-mono text-sm text-cf-cyan">
+                <span className="inline-flex items-center gap-1.5 font-mono text-sm text-cf-text">
                   <GitBranch className="h-3.5 w-3.5" />
                   {status.branch}
                 </span>
@@ -323,7 +287,7 @@ export function OverviewPage() {
                 lastCommit ? (
                   <div className="min-w-0">
                     <div className="truncate text-sm text-cf-text">{lastCommit.message}</div>
-                    <div className="mt-0.5 font-mono text-[10px] text-cf-faint">
+                    <div className="mt-0.5 font-mono text-xs text-cf-faint">
                       {lastCommit.shortHash} · {new Date(lastCommit.date).toLocaleString()}
                     </div>
                   </div>
@@ -360,30 +324,30 @@ export function OverviewPage() {
       </Card>
 
       {/* Git activity + timeline */}
-      <div className="relative z-10 grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2" title="Git activity">
-          {chartData.length > 0 ? (
+          {chartData.length > 1 ? (
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="overviewGradIn" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={theme.chart.cyan} stopOpacity={0.35} />
+                    <stop offset="5%" stopColor={theme.chart.cyan} stopOpacity={0.14} />
                     <stop offset="95%" stopColor={theme.chart.cyan} stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="overviewGradDel" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={theme.chart.red} stopOpacity={0.35} />
+                    <stop offset="5%" stopColor={theme.chart.red} stopOpacity={0.14} />
                     <stop offset="95%" stopColor={theme.chart.red} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={theme.chart.grid} />
+                <CartesianGrid vertical={false} stroke={theme.chart.grid} />
                 <XAxis
                   dataKey="day"
-                  tick={{ fill: theme.chart.axis, fontSize: 11 }}
+                  tick={{ fill: theme.chart.axis, fontSize: 11, fontFamily: 'IBM Plex Mono' }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: theme.chart.axis, fontSize: 11 }}
+                  tick={{ fill: theme.chart.axis, fontSize: 11, fontFamily: 'IBM Plex Mono' }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -400,7 +364,7 @@ export function OverviewPage() {
                   dataKey="insertions"
                   stroke={theme.chart.cyan}
                   fill="url(#overviewGradIn)"
-                  strokeWidth={2}
+                  strokeWidth={1.75}
                   name="Additions"
                 />
                 <Area
@@ -408,7 +372,7 @@ export function OverviewPage() {
                   dataKey="deletions"
                   stroke={theme.chart.red}
                   fill="url(#overviewGradDel)"
-                  strokeWidth={2}
+                  strokeWidth={1.75}
                   name="Deletions"
                 />
               </AreaChart>
@@ -416,18 +380,22 @@ export function OverviewPage() {
           ) : (
             <EmptyState
               icon={Activity}
-              title="No commit data"
+              title={chartData.length === 1 ? 'Not enough history yet' : 'No commit data'}
               description={
-                selectedRepo
-                  ? 'No commits returned for this repository.'
-                  : 'Select a repository to view commit activity.'
+                !selectedRepo
+                  ? 'Select a repository to view commit activity.'
+                  : chartData.length === 1
+                    ? 'Only one commit is available. GitHub imports are shallow clones, so activity fills in as new commits land.'
+                    : 'No commits returned for this repository.'
               }
             />
           )}
         </Card>
 
         <Card title="Working tree">
-          {status ? (
+          {status && changedFiles === 0 ? (
+            <EmptyState icon={GitBranch} title="Clean working tree" description="No staged, modified or untracked files." />
+          ) : status ? (
             <div className="space-y-3">
               <StatusGroup label="Staged" items={status.staged} tone="success" />
               <StatusGroup label="Modified" items={status.unstaged} tone="warning" />
@@ -439,7 +407,7 @@ export function OverviewPage() {
         </Card>
       </div>
 
-      <div className="relative z-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card
           title="Recent commits"
           action={
@@ -447,7 +415,7 @@ export function OverviewPage() {
               <button
                 type="button"
                 onClick={() => navigate('/git')}
-                className="flex items-center gap-1 text-xs text-cf-cyan hover:text-cf-ice"
+                className="flex items-center gap-1 text-xs text-cf-muted transition-colors hover:text-cf-text"
               >
                 View all <ArrowUpRight className="h-3 w-3" />
               </button>
@@ -458,9 +426,9 @@ export function OverviewPage() {
             <ol className="relative space-y-0 border-l border-cf-border pl-4">
               {commits.slice(0, 8).map((c) => (
                 <li key={c.hash} className="relative pb-4 last:pb-0">
-                  <span className="absolute -left-[1.3rem] top-1.5 h-2.5 w-2.5 rounded-full border border-cf-cyan bg-cf-card" />
-                  <div className="text-xs text-cf-text">{c.message}</div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-cf-faint">
+                  <span className="absolute -left-[1.3rem] top-1.5 h-2.5 w-2.5 rounded-full border border-cf-faint bg-cf-card" />
+                  <div className="text-sm text-cf-text">{c.message}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-xs text-cf-faint">
                     <span className="font-mono text-cf-muted">{c.shortHash}</span>
                     <span>{c.author}</span>
                     <span>{new Date(c.date).toLocaleDateString()}</span>
@@ -481,7 +449,7 @@ export function OverviewPage() {
             <button
               type="button"
               onClick={() => navigate('/docker')}
-              className="flex items-center gap-1 text-xs text-cf-cyan hover:text-cf-ice"
+              className="flex items-center gap-1 text-xs text-cf-muted transition-colors hover:text-cf-text"
             >
               Manage <ArrowUpRight className="h-3 w-3" />
             </button>
@@ -512,12 +480,12 @@ export function OverviewPage() {
               {containers.slice(0, 6).map((c) => (
                 <div
                   key={c.id}
-                  className="flex items-center gap-3 rounded-lg border border-cf-border/60 bg-cf-navy/40 p-2 transition-colors hover:border-cf-cyan/30"
+                  className="flex items-center gap-3 rounded-lg border border-cf-border bg-cf-navy p-2.5"
                 >
                   <span className={c.state === 'running' ? 'status-dot-online' : 'status-dot-offline'} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs font-medium text-cf-text">{c.name}</div>
-                    <div className="truncate text-[10px] text-cf-faint">{c.image}</div>
+                    <div className="truncate font-mono text-xs text-cf-faint">{c.image}</div>
                   </div>
                   <Badge variant={c.state === 'running' ? 'success' : 'muted'}>{c.state}</Badge>
                 </div>
@@ -530,27 +498,27 @@ export function OverviewPage() {
       </div>
 
       {/* AI Copilot */}
-      <Card className="relative z-10 overflow-hidden">
+      <Card>
         <div className="mb-4 flex items-center gap-2">
-          <SpiderEmblem size={22} glowing />
-          <div className="text-sm font-semibold text-cf-text">AI Copilot quick actions</div>
+          <CodigoMark size={22} tile={false} />
+          <h2 className="text-sm font-medium text-cf-text">AI Copilot</h2>
         </div>
         {health == null ? (
           <div className="flex justify-center py-4">
             <LoadingSpinner />
           </div>
         ) : !health.integrations.ai.configured ? (
-          <Alert variant="warning" title="AI Copilot not configured">
-            Set <code className="rounded bg-cf-elevated px-1 font-mono text-cf-cyan">AI_API_KEY</code> in{' '}
-            <code className="rounded bg-cf-elevated px-1 font-mono">server/.env</code> to enable commit
-            messages, error explanation, and log analysis. Quick actions stay disabled until the server reports a
-            configured key.
+          <Alert variant="info" title="AI Copilot is not configured">
+            Add <code className="rounded bg-cf-elevated px-1 font-mono text-cf-text">LLM_API_KEY</code> (or{' '}
+            <code className="rounded bg-cf-elevated px-1 font-mono text-cf-text">NVIDIA_API_KEY</code>) to{' '}
+            <code className="rounded bg-cf-elevated px-1 font-mono text-cf-text">server/.env</code> and restart the
+            server to enable commit messages, error explanations and log analysis.
           </Alert>
         ) : (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {[
               { label: 'Generate commit message', desc: 'From staged diff', icon: GitCommit },
-              { label: 'Explain error', desc: 'Paste any stack trace', icon: Sparkles },
+              { label: 'Explain error', desc: 'Paste any stack trace', icon: AlertTriangle },
               { label: 'Analyze Docker logs', desc: 'Diagnose failures', icon: Terminal },
               { label: 'Ask Copilot', desc: 'Code and workflow help', icon: Bot },
             ].map((action) => (
@@ -558,11 +526,11 @@ export function OverviewPage() {
                 key={action.label}
                 type="button"
                 onClick={() => navigate('/ai')}
-                className="card-sm group text-left transition-all hover:border-cf-violet/50 hover:bg-cf-violet/5"
+                className="card-sm group text-left transition-colors hover:border-white/10 hover:bg-cf-elevated"
               >
-                <action.icon className="mb-2 h-4 w-4 text-cf-violet group-hover:text-cf-cyan" />
-                <div className="text-xs font-medium text-cf-text group-hover:text-cf-ice">{action.label}</div>
-                <div className="mt-0.5 text-[10px] text-cf-faint">{action.desc}</div>
+                <action.icon className="mb-3 h-4 w-4 text-cf-faint" />
+                <div className="text-sm font-medium text-cf-text">{action.label}</div>
+                <div className="mt-1 text-xs text-cf-faint">{action.desc}</div>
               </button>
             ))}
           </div>
@@ -571,13 +539,13 @@ export function OverviewPage() {
 
       {/* Recent operations */}
       <Card
-        className="relative z-10"
+       
         title="Recent operations"
         action={
           <button
             type="button"
             onClick={() => navigate('/history')}
-            className="flex items-center gap-1 text-xs text-cf-cyan hover:text-cf-ice"
+            className="flex items-center gap-1 text-xs text-cf-muted transition-colors hover:text-cf-text"
           >
             Full history <History className="h-3 w-3" />
           </button>
@@ -588,7 +556,7 @@ export function OverviewPage() {
             {recentJobs.slice(0, 8).map((job) => (
               <div
                 key={job.id}
-                className="flex items-start gap-3 rounded-lg border border-cf-border/50 bg-cf-navy/30 p-3"
+                className="flex items-start gap-3 rounded-lg border border-cf-border bg-cf-navy p-3"
               >
                 <JobStatusDot status={job.status} />
                 <div className="min-w-0 flex-1">
@@ -598,10 +566,10 @@ export function OverviewPage() {
                   </div>
                   {job.summary && <p className="mt-0.5 text-xs text-cf-muted">{job.summary}</p>}
                   {job.error_message && (
-                    <p className="mt-1 font-mono text-[10px] text-cf-error">{job.error_message}</p>
+                    <p className="mt-1 break-words font-mono text-xs text-cf-error">{job.error_message}</p>
                   )}
                 </div>
-                <time className="shrink-0 text-[10px] text-cf-faint">{formatJobTime(job.created_at)}</time>
+                <time className="shrink-0 font-mono text-xs tabular-nums text-cf-faint">{formatJobTime(job.created_at)}</time>
               </div>
             ))}
           </div>
@@ -616,7 +584,7 @@ export function OverviewPage() {
 
       {/* Integration status */}
       {health && (
-        <section className="relative z-10">
+        <section>
           <PageHeader title="Integration status" description="Live configuration from the CódigoFlow API health check." />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <IntegrationTile
@@ -650,7 +618,7 @@ export function OverviewPage() {
 function OverviewField({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-cf-faint">{label}</div>
+      <div className="text-xs text-cf-faint">{label}</div>
       <div className="mt-1.5 text-cf-text">{value}</div>
     </div>
   );
@@ -675,7 +643,7 @@ function StatusGroup({
 
   return (
     <div>
-      <div className={`mb-1 text-[10px] font-semibold uppercase tracking-wider ${toneCls}`}>
+      <div className={`mb-1 text-xs font-medium ${toneCls}`}>
         {label} ({items.length})
       </div>
       <div className="space-y-0.5">
@@ -700,15 +668,15 @@ function IntegrationTile({
   detail: string;
 }) {
   return (
-    <div className="card flex items-center justify-between gap-3 border-cf-border/80">
+    <div className="card flex items-center justify-between gap-4">
       <div>
         <div className="text-sm font-medium text-cf-text">{label}</div>
-        <div className="mt-0.5 text-[11px] text-cf-faint">{detail}</div>
+        <div className="mt-0.5 break-words text-xs text-cf-faint">{detail}</div>
       </div>
-      <div className="flex items-center gap-1.5">
-        <span className={active ? 'status-dot-online' : 'status-dot-offline'} />
-        <Badge variant={active ? 'success' : 'error'}>{active ? 'Ready' : 'Off'}</Badge>
-      </div>
+      <span className="flex shrink-0 items-center gap-2 text-xs text-cf-muted">
+        <span className={active ? 'status-dot-online' : 'status-dot bg-cf-faint/60'} />
+        {active ? 'Connected' : 'Not configured'}
+      </span>
     </div>
   );
 }
@@ -718,7 +686,7 @@ function JobStatusDot({ status }: { status: Job['status'] }) {
     status === 'succeeded'
       ? 'border-cf-success bg-cf-success/80'
       : status === 'running'
-        ? 'border-cf-cyan bg-cf-cyan/80 animate-pulse'
+        ? 'border-cf-cyan bg-cf-cyan/80'
         : status === 'failed'
           ? 'border-cf-error bg-cf-error/70'
           : status === 'cancelled'
@@ -726,4 +694,53 @@ function JobStatusDot({ status }: { status: Job['status'] }) {
             : 'border-cf-faint bg-cf-elevated';
 
   return <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full border ${tone}`} aria-hidden />;
+}
+
+const PIPELINE_STEPS = [
+  { key: 'import', title: 'Import', body: 'Paste a public GitHub URL or register a local folder', to: '/repositories' },
+  { key: 'analyse', title: 'Analyse', body: 'Detect the stack, Dockerfile and env names, never their values', to: '/repositories' },
+  { key: 'workflow', title: 'Review workflow', body: 'Load the proposed Terraform → Ansible → Puppet → Nagios graph', to: '/workflow' },
+  { key: 'observe', title: 'Observe', body: 'Follow jobs, logs and diagnostics in execution history', to: '/history' },
+] as const;
+
+/** The CódigoFlow signature: four stages joined by one flow line. */
+function PipelineTrack({
+  done,
+  onNavigate,
+}: {
+  done: Record<(typeof PIPELINE_STEPS)[number]['key'], boolean>;
+  onNavigate: (to: string) => void;
+}) {
+  return (
+    <ol className="relative mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-0">
+      <span aria-hidden className="absolute left-3 right-3 top-3 hidden h-px bg-cf-border xl:block" />
+      {PIPELINE_STEPS.map((step, i) => {
+        const complete = done[step.key];
+        return (
+          <li key={step.key} className="relative xl:pr-6">
+            <button
+              type="button"
+              onClick={() => onNavigate(step.to)}
+              className="group flex w-full flex-col items-start gap-3 rounded-lg text-left"
+            >
+              <span
+                className={clsx(
+                  'relative z-10 flex h-6 w-6 items-center justify-center rounded-full border font-mono text-xs transition-colors',
+                  complete
+                    ? 'border-cf-red bg-cf-red text-white'
+                    : 'border-cf-border bg-cf-card text-cf-faint group-hover:border-cf-faint group-hover:text-cf-text',
+                )}
+              >
+                {complete ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : i + 1}
+              </span>
+              <span>
+                <span className="block text-sm font-medium text-cf-text">{step.title}</span>
+                <span className="mt-1 block text-sm leading-5 text-cf-faint">{step.body}</span>
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
 }

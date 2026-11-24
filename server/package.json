@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--experimental-sqlite tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-migrations.js",
     "start": "node --experimental-sqlite dist/index.js",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",

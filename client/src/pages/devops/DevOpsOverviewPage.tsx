@@ -4,7 +4,6 @@ import { RefreshCw, Server, Shield, Cloud, Activity } from 'lucide-react';
 import { devopsApi } from '../../services/devopsApi';
 import { jobsApi } from '../../services/api';
 import type { Job } from '../../types';
-import { PageBackground } from '../../components/shared';
 import { OperatorAuthPanel } from '../../components/devops/OperatorAuthPanel';
 import { DeploymentControlPanel } from '../../components/devops/DeploymentControlPanel';
 import { PageHeader, Button, Badge, Alert, LoadingSpinner, Card } from '../../components/ui';
@@ -43,7 +42,6 @@ export function DevOpsOverviewPage() {
 
   return (
     <div className="page-shell relative">
-      <PageBackground />
       <PageHeader
         title="DevOps Control Center"
         description="Unified Terraform, Ansible, Puppet, and Nagios operations with live tool detection."

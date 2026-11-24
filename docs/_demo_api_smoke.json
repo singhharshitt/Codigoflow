@@ -1,0 +1,97 @@
+[
+  {
+    "path": "/api/health",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":{\"status\":\"ok\",\"version\":\"1.0.0\",\"timestamp\":\"2026-11-22T13:39:43.739Z\",\"integrations\":{\"ai\":{\"configured\":false,\"provider\":\"none\"},\"github\":{\"configured\":false},\"docker\":{\"available\":true,\"version\":\"29.8.1\"}}}}"
+  },
+  {
+    "path": "/api/auth/status",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":{\"authenticated\":false,\"role\":null,\"expiresAt\":null,\"tokenConfigured\":false,\"sessionConfigured\":false,\"loopback\":true,\"authMode\":\"loopback-dev\"}}"
+  },
+  {
+    "path": "/api/repositories",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":[{\"id\":\"d3655b1f-5057-4e90-85bc-41bfccf5375c\",\"name\":\"Codigoflow\",\"path\":\"D:\\\\Codigoflow\\\\server\\\\data\\\\repos\\\\singhharshitt__Codigoflow\",\"description\":\"CódigoFlow is an AI-powered developer productivity platform that simplifies Git/GitHub automation, Docker management, and DevOps workflows in one unified workspace.\",\"remote_url\":\"https://github.com/singhharshitt/Codigoflow.git\",\"github_owner\":\"singhharshitt\",\"github_repo\":\"Codigoflow\",\"created_at\":1795353732,\"updated_at\":"
+  },
+  {
+    "path": "/api/jobs",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":[{\"id\":\"05f15fbe-850a-4630-9aa2-fa9ef7fd31d8\",\"operation\":\"workflow.run\",\"repo_id\":null,\"status\":\"failed\",\"summary\":\"workflow:6e55429f-1cc7-41b5-8b4e-89d42e641254\",\"log_ref\":null,\"error_message\":\"terraform is not installed on the wsl control node\",\"started_at\":1795354146,\"finished_at\":1795354155,\"created_at\":1795354146,\"type\":\"workflow\",\"duration_ms\":9000},{\"id\":\"0fb2ae54-c2ce-4220-8946-c2f0de893670\",\"operation\":\"workflow.run\",\"repo_id\":null,\"status\":\"failed\",\"summary\":\"wo"
+  },
+  {
+    "path": "/api/workflows",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":[{\"id\":\"2b98ed35-fb71-4dd2-a7a3-4617cf681c5d\",\"name\":\"[demo] Smoke persistence check\",\"description\":\"Created by scripts/demo-api-smoke.mjs\",\"workflow_json\":\"{\\\"name\\\":\\\"[demo] Smoke persistence check\\\",\\\"nodes\\\":[{\\\"id\\\":\\\"start\\\",\\\"type\\\":\\\"cfNode\\\",\\\"position\\\":{\\\"x\\\":0,\\\"y\\\":0},\\\"data\\\":{\\\"kind\\\":\\\"start\\\",\\\"label\\\":\\\"Start\\\",\\\"config\\\":{}}},{\\\"id\\\":\\\"end\\\",\\\"type\\\":\\\"cfNode\\\",\\\"position\\\":{\\\"x\\\":240,\\\"y\\\":0},\\\"data\\\":{\\\"kind\\\":\\\"end\\\",\\\"label\\\":\\\"End\\\",\\\"config\\\":{}}}]"
+  },
+  {
+    "path": "/api/docker/status",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":{\"available\":true,\"version\":\"29.8.1\"}}"
+  },
+  {
+    "path": "/api/docker/containers?all=true",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":[{\"id\":\"43205d29e201\",\"name\":\"codigoflow-demo-redis\",\"image\":\"redis:7-alpine\",\"status\":\"Exited (0) 6 minutes ago\",\"state\":\"exited\",\"ports\":\"\",\"created\":\"2026-11-22 19:01:57 +0530 IST\"},{\"id\":\"21c88f242bfe\",\"name\":\"cedcolens-client-1\",\"image\":\"reviewlens-client\",\"status\":\"Up 8 minutes (healthy)\",\"state\":\"running\",\"ports\":\"0.0.0.0:8088->80/tcp, [::]:8088->80/tcp\",\"created\":\"2026-11-21 23:45:58 +0530 IST\"},{\"id\":\"375b944bdfc4\",\"name\":\"cedcolens-server-1\",\"image\":\"dda0c1eea4c1"
+  },
+  {
+    "path": "/api/ai/status",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":{\"configured\":false,\"model\":\"gpt-4o-mini\",\"baseUrl\":\"https://api.openai.com/v1\",\"provider\":\"none\",\"keySlots\":0}}"
+  },
+  {
+    "path": "/api/devops/status",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":{\"control\":{\"mode\":\"wsl\",\"available\":true,\"detail\":\"WSL Ubuntu ready\",\"distro\":\"Ubuntu\",\"preferredMode\":\"auto\",\"activeMode\":\"wsl\"},\"tools\":[{\"name\":\"terraform\",\"available\":false,\"mode\":\"wsl\",\"error\":\"terraform not found on control node\",\"installHint\":\"Install Terraform CLI in WSL/Ubuntu: https://developer.hashicorp.com/terraform/install\"},{\"name\":\"ansible\",\"available\":false,\"mode\":\"wsl\",\"error\":\"ansible not found on control node\",\"installHint\":\"Install Ansible in WSL/Ubunt"
+  },
+  {
+    "path": "/api/devops/preflight",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":{\"control\":{\"mode\":\"wsl\",\"available\":true,\"detail\":\"WSL Ubuntu ready\",\"distro\":\"Ubuntu\",\"preferredMode\":\"auto\",\"activeMode\":\"wsl\"},\"tools\":[{\"name\":\"terraform\",\"available\":false,\"mode\":\"wsl\",\"error\":\"terraform not found on control node\",\"installHint\":\"Install Terraform CLI in WSL/Ubuntu: https://developer.hashicorp.com/terraform/install\"},{\"name\":\"ansible\",\"available\":false,\"mode\":\"wsl\",\"error\":\"ansible not found on control node\",\"installHint\":\"Install Ansible in WSL/Ubunt"
+  },
+  {
+    "path": "/api/devops/terraform/projects",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":[{\"id\":\"aws\",\"name\":\"aws\",\"path\":\"D:\\\\Codigoflow\\\\devops\\\\terraform\\\\aws\",\"relativePath\":\"aws\"},{\"id\":\"azure\",\"name\":\"azure\",\"path\":\"D:\\\\Codigoflow\\\\devops\\\\terraform\\\\azure\",\"relativePath\":\"azure\"},{\"id\":\"gcp\",\"name\":\"gcp\",\"path\":\"D:\\\\Codigoflow\\\\devops\\\\terraform\\\\gcp\",\"relativePath\":\"gcp\"},{\"id\":\"local-lab\",\"name\":\"local-lab\",\"path\":\"D:\\\\Codigoflow\\\\devops\\\\terraform\\\\local-lab\",\"relativePath\":\"local-lab\"}]}"
+  },
+  {
+    "path": "/api/devops/terraform/validate",
+    "status": 503,
+    "body": "{\"success\":false,\"error\":{\"code\":\"TOOL_NOT_INSTALLED\",\"message\":\"terraform is not installed on the wsl control node\"}}"
+  },
+  {
+    "path": "/api/devops/ansible/playbooks",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":[{\"name\":\"bootstrap.yml\",\"path\":\"D:\\\\Codigoflow\\\\devops\\\\ansible\\\\playbooks\\\\bootstrap.yml\",\"relativePath\":\"playbooks\\\\bootstrap.yml\"},{\"name\":\"configure-server.yml\",\"path\":\"D:\\\\Codigoflow\\\\devops\\\\ansible\\\\playbooks\\\\configure-server.yml\",\"relativePath\":\"playbooks\\\\configure-server.yml\"},{\"name\":\"deploy-app.yml\",\"path\":\"D:\\\\Codigoflow\\\\devops\\\\ansible\\\\playbooks\\\\deploy-app.yml\",\"relativePath\":\"playbooks\\\\deploy-app.yml\"},{\"name\":\"docker-setup.yml\",\"path\":\"D:\\\\Codigoflow\\"
+  },
+  {
+    "path": "/api/devops/ansible/playbooks/validate",
+    "status": 503,
+    "body": "{\"success\":false,\"error\":{\"code\":\"TOOL_NOT_INSTALLED\",\"message\":\"ansible-playbook is not installed on the wsl control node\"}}"
+  },
+  {
+    "path": "/api/devops/ansible/inventory",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":[{\"name\":\"aws_ec2.example.yml\",\"path\":\"D:\\\\Codigoflow\\\\devops\\\\ansible\\\\inventory\\\\aws_ec2.example.yml\",\"relativePath\":\"inventory\\\\aws_ec2.example.yml\"},{\"name\":\"lab.ini\",\"path\":\"D:\\\\Codigoflow\\\\devops\\\\ansible\\\\inventory\\\\lab.ini\",\"relativePath\":\"inventory\\\\lab.ini\"}]}"
+  },
+  {
+    "path": "/api/devops/puppet/status",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":{\"available\":false,\"mode\":\"wsl\",\"error\":\"puppet not found on control node\",\"installHint\":\"Install Puppet agent/server on Ubuntu control node (see docs/puppet-guide.md)\",\"serverConfigured\":false}}"
+  },
+  {
+    "path": "/api/devops/nagios/status",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":{\"available\":true,\"mode\":\"wsl\",\"error\":\"nagios not found on control node\",\"installHint\":\"Install Nagios Core on Ubuntu (see docs/nagios-guide.md)\",\"statusFile\":\"D:\\\\Codigoflow\\\\devops\\\\nagios\\\\config\\\\status.dat.sample\",\"statusFileExists\":true,\"dataSource\":\"sample\",\"isSampleData\":true,\"note\":\"Showing bundled sample status.dat — not live monitoring. Set NAGIOS_STATUS_FILE for real Nagios Core output.\"}}"
+  },
+  {
+    "path": "/api/devops/lab/status",
+    "status": 200,
+    "body": "{\"success\":true,\"data\":{\"control\":{\"mode\":\"wsl\",\"available\":true,\"detail\":\"WSL Ubuntu ready\",\"distro\":\"Ubuntu\",\"preferredMode\":\"auto\",\"activeMode\":\"wsl\"},\"tools\":[{\"name\":\"terraform\",\"available\":false,\"mode\":\"wsl\",\"error\":\"terraform not found on control node\",\"installHint\":\"Install Terraform CLI in WSL/Ubuntu: https://developer.hashicorp.com/terraform/install\"},{\"name\":\"ansible\",\"available\":false,\"mode\":\"wsl\",\"error\":\"ansible not found on control node\",\"installHint\":\"Install Ansible in WSL/Ubunt"
+  },
+  {
+    "path": "/api/ai/ask",
+    "status": 503,
+    "body": "{\"success\":false,\"error\":{\"code\":\"AI_NOT_CONFIGURED\",\"message\":\"AI is not configured. Set LLM_API_KEY (and optionally LLM_API_KEY2), or NVIDIA_API_KEY / AI_API_KEY in server/.env\"}}"
+  }
+]

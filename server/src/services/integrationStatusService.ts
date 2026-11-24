@@ -1,4 +1,4 @@
-import { STATUS_CACHE_TTL_MS, isAIConfigured, getAIProviderLabel, config } from '../config';
+import { STATUS_CACHE_TTL_MS } from '../config';
 import { getGitVersion } from '../integrations/git';
 import { getDockerStatus } from '../integrations/docker';
 import { getGitHubStatus } from '../integrations/github';
@@ -54,7 +54,9 @@ export async function getIntegrationsStatus(force = false) {
     ai: {
       state: ai.configured ? 'connected' : 'not_configured',
       configured: ai.configured,
-      provider: getAIProviderLabel(),
+      provider: ai.provider,
+      defaultProvider: ai.defaultProvider,
+      providers: ai.providers.map((p) => ({ id: p.id, label: p.label, model: p.model })),
       model: ai.model,
       baseUrl: ai.baseUrl,
       // Never include API keys
@@ -83,9 +85,8 @@ export async function getIntegrationsStatus(force = false) {
       error: nagios.error,
     },
     meta: {
-      nvidiaPreferred: true,
-      aiKeyPresent: isAIConfigured(),
-      model: config.AI_MODEL,
+      aiKeyPresent: ai.configured,
+      model: ai.model,
       cached: false,
     },
   };

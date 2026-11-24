@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { devopsApi } from '../../services/devopsApi';
-import { PageBackground } from '../../components/shared';
 import { PageHeader, Button, Alert, Card, Badge, LoadingSpinner } from '../../components/ui';
 
 function stateVariant(label: string): 'success' | 'warning' | 'error' | 'muted' {
@@ -43,7 +42,6 @@ export function NagiosPage() {
 
   return (
     <div className="page-shell relative">
-      <PageBackground />
       <PageHeader
         title="Nagios"
         description="Host and service status from Nagios status data, plus allowlisted external commands."

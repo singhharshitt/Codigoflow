@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { devopsApi } from '../../services/devopsApi';
-import { PageBackground } from '../../components/shared';
 import { PageHeader, Button, Alert, Card, Badge, LoadingSpinner, Input } from '../../components/ui';
 
 export function PuppetPage() {
@@ -46,7 +45,6 @@ export function PuppetPage() {
 
   return (
     <div className="page-shell relative">
-      <PageBackground />
       <PageHeader
         title="Puppet"
         description="Manifest validation, no-op drift preview, approved apply, and individual certificate signing."

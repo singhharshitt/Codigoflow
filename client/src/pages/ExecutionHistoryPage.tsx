@@ -18,7 +18,6 @@ import {
   Badge,
   Input,
 } from '../components/ui';
-import { PageBackground } from '../components/shared';
 import { toast } from 'sonner';
 import { useHistoryStore, type JobFilter } from '../stores/historyStore';
 import { aiJobApi, jobsApi } from '../services/api';
@@ -81,7 +80,6 @@ export function ExecutionHistoryPage() {
 
   return (
     <div className="page-shell relative">
-      <PageBackground showWeb={false} />
       <PageHeader
         title="Execution History"
         description="Past and active automation jobs from the CódigoFlow server"
@@ -278,11 +276,11 @@ function JobDetails({ job }: { job: Job }) {
   return (
     <div className="space-y-3 text-sm">
       <div>
-        <div className="text-[10px] uppercase tracking-wider text-cf-faint">Operation</div>
+        <div className="text-xs text-cf-faint">Operation</div>
         <div className="text-cf-text font-medium">{job.operation}</div>
       </div>
       <div>
-        <div className="text-[10px] uppercase tracking-wider text-cf-faint">Job ID</div>
+        <div className="text-xs text-cf-faint">Job ID</div>
         <div className="font-mono text-xs text-cf-cyan break-all">{job.id}</div>
       </div>
       <div className="flex gap-2 items-center">
@@ -312,7 +310,7 @@ function JobDetails({ job }: { job: Job }) {
 
       <div>
         <div className="flex items-center justify-between gap-2 mb-1">
-          <div className="text-[10px] uppercase tracking-wider text-cf-faint">Persisted logs</div>
+          <div className="text-xs text-cf-faint">Persisted logs</div>
           {(job.status === 'failed' || job.status === 'cancelled') && (
             <Button size="sm" variant="secondary" loading={aiBusy} onClick={() => void runAiAnalysis()}>
               AI diagnose
@@ -324,7 +322,7 @@ function JobDetails({ job }: { job: Job }) {
         ) : logs.length === 0 ? (
           <p className="text-xs text-cf-faint">No log lines persisted for this job.</p>
         ) : (
-          <pre className="code-block text-[10px] max-h-56 overflow-auto whitespace-pre-wrap">
+          <pre className="code-block text-xs max-h-56 overflow-auto whitespace-pre-wrap">
             {logs.map((l) => `${new Date(l.timestamp * 1000).toISOString()} [${l.level}] ${l.message}`).join('\n')}
           </pre>
         )}
@@ -343,7 +341,7 @@ function JobDetails({ job }: { job: Job }) {
 
       {job.log_ref && (
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-cf-faint mb-1">Log reference</div>
+          <div className="text-xs text-cf-faint mb-1">Log reference</div>
           <pre className="code-block text-xs">{job.log_ref}</pre>
         </div>
       )}

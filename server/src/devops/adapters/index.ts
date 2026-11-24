@@ -2,6 +2,7 @@ import type { ControlNodeInfo, DevOpsExecutor, ExecutionMode, ExecRequest, ExecR
 import { NativeExecutor } from './nativeExecutor';
 import { WslExecutor } from './wslExecutor';
 import { SshExecutor } from './sshExecutor';
+import { createError } from '../../middleware/errorHandler';
 
 export * from './types';
 export * from './sanitize';
@@ -48,7 +49,17 @@ export async function resolveExecutor(force = false): Promise<{
 
 export async function runDevOps(req: ExecRequest): Promise<ExecResult> {
   const { executor } = await resolveExecutor();
-  return executor.run(req);
+  const result = await executor.run(req);
+  // 127 = "command not found" in every POSIX shell. Surface it as a clear,
+  // typed error instead of leaking raw shell noise as a "validation failure".
+  if (result.exitCode === 127 && /not found|No such file/i.test(result.stderr)) {
+    throw createError(
+      `${req.executable} is not installed on the ${executor.mode} control node`,
+      503,
+      'TOOL_NOT_INSTALLED',
+    );
+  }
+  return result;
 }
 
 export async function getControlNodeStatus(force = false) {

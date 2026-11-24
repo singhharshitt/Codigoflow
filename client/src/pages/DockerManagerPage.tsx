@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { dockerApi } from '../services/api';
-import { PageBackground } from '../components/shared';
 import {
   StatCard,
   Tabs,
@@ -113,6 +112,13 @@ export function DockerManagerPage() {
     void loadAll();
   }, [loadAll]);
 
+  // Stop/restart interrupt running workloads, so they go through a confirm dialog.
+  const [pendingAction, setPendingAction] = useState<{
+    id: string;
+    name: string;
+    action: 'stop' | 'restart';
+  } | null>(null);
+
   async function runContainerAction(
     id: string,
     name: string,
@@ -172,7 +178,6 @@ export function DockerManagerPage() {
 
   return (
     <div className="page-shell relative">
-      <PageBackground showGlow />
 
       <PageHeader
         title="Docker Manager"
@@ -199,16 +204,16 @@ export function DockerManagerPage() {
             {statusLoading ? (
               <LoadingSpinner size="md" />
             ) : dockerAvailable ? (
-              <div className="w-10 h-10 rounded-xl border border-cf-cyan/30 bg-cf-cyan/10 flex items-center justify-center">
-                <PlugZap className="w-5 h-5 text-cf-cyan" />
+              <div className="w-10 h-10 rounded-xl border border-cf-border bg-cf-elevated flex items-center justify-center">
+                <PlugZap className="w-5 h-5 text-cf-success" />
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-xl border border-cf-error/30 bg-cf-error/10 flex items-center justify-center">
-                <Plug className="w-5 h-5 text-cf-error" />
+              <div className="w-10 h-10 rounded-xl border border-cf-border bg-cf-elevated flex items-center justify-center">
+                <Plug className="w-5 h-5 text-cf-faint" />
               </div>
             )}
             <div>
-              <div className="text-sm font-semibold text-cf-text">Docker connection</div>
+              <div className="text-sm font-medium text-cf-text">Docker connection</div>
               {statusLoading ? (
                 <p className="text-xs text-cf-faint mt-0.5">Checking daemon status…</p>
               ) : dockerAvailable ? (
@@ -222,9 +227,7 @@ export function DockerManagerPage() {
                   ) : null}
                 </p>
               ) : (
-                <p className="text-xs text-cf-faint mt-0.5">
-                  {dockerStatus?.error ?? 'Docker daemon is not reachable.'}
-                </p>
+                <p className="text-xs text-cf-faint mt-0.5">Daemon not reachable from the CódigoFlow server</p>
               )}
             </div>
           </div>
@@ -238,8 +241,10 @@ export function DockerManagerPage() {
 
       {dockerUnavailable && (
         <Alert variant="warning" title="Docker unavailable" className="relative z-10">
-          {dockerStatus?.error ??
-            'Start Docker Desktop (or your Docker daemon) and refresh. Container data may be empty until the daemon is running.'}
+          Start Docker Desktop (or your Docker daemon), then press Refresh.
+          {dockerStatus?.error && (
+            <span className="mt-2 block break-words font-mono text-xs text-cf-faint">{dockerStatus.error}</span>
+          )}
         </Alert>
       )}
 
@@ -304,7 +309,7 @@ export function DockerManagerPage() {
                           <td>
                             <div className="flex flex-col gap-1">
                               <Badge variant={containerBadgeVariant(c.state)}>{c.state}</Badge>
-                              <span className="text-[10px] text-cf-faint">{c.status}</span>
+                              <span className="text-xs text-cf-faint">{c.status}</span>
                             </div>
                           </td>
                           <td className="text-xs max-w-[8rem] truncate" title={c.ports}>
@@ -320,7 +325,7 @@ export function DockerManagerPage() {
                                     size="sm"
                                     disabled={busy || !dockerAvailable}
                                     loading={busy}
-                                    onClick={() => void runContainerAction(c.id, c.name, 'stop')}
+                                    onClick={() => setPendingAction({ id: c.id, name: c.name, action: 'stop' })}
                                   >
                                     <Square className="w-3.5 h-3.5" />
                                     Stop
@@ -330,7 +335,7 @@ export function DockerManagerPage() {
                                     size="sm"
                                     disabled={busy || !dockerAvailable}
                                     loading={busy}
-                                    onClick={() => void runContainerAction(c.id, c.name, 'restart')}
+                                    onClick={() => setPendingAction({ id: c.id, name: c.name, action: 'restart' })}
                                   >
                                     <RotateCcw className="w-3.5 h-3.5" />
                                     Restart
@@ -486,6 +491,34 @@ export function DockerManagerPage() {
 
       {/* Container detail modal */}
       <Modal
+        open={pendingAction !== null}
+        onClose={() => setPendingAction(null)}
+        title={pendingAction?.action === 'stop' ? 'Stop container' : 'Restart container'}
+        size="sm"
+      >
+        <p className="text-sm text-cf-muted">
+          {pendingAction?.action === 'stop' ? 'Stop' : 'Restart'}{' '}
+          <span className="font-mono text-cf-text">{pendingAction?.name}</span>? Anything it serves will be
+          unavailable {pendingAction?.action === 'stop' ? 'until it is started again' : 'for a few seconds'}.
+        </p>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setPendingAction(null)}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              const p = pendingAction;
+              setPendingAction(null);
+              if (p) void runContainerAction(p.id, p.name, p.action);
+            }}
+          >
+            {pendingAction?.action === 'stop' ? 'Stop container' : 'Restart container'}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
         open={detailContainer !== null}
         onClose={closeDetail}
         title={detailContainer ? detailContainer.name : 'Container'}
@@ -529,7 +562,7 @@ export function DockerManagerPage() {
                   ] as const
                 ).map(([label, value]) => (
                   <div key={label} className="rounded-lg border border-cf-border bg-cf-navy/50 p-3">
-                    <dt className="text-[10px] uppercase tracking-wider text-cf-faint mb-1">{label}</dt>
+                    <dt className="text-xs text-cf-faint mb-1">{label}</dt>
                     <dd className="font-mono text-xs text-cf-muted break-all">{value}</dd>
                   </div>
                 ))}

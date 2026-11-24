@@ -25,6 +25,10 @@ export const ALLOWED_EXECUTABLES = new Set([
   'cat',
   'test',
   'ls',
+  // Terraform plan files on a remote (SSH) control node: create the plans dir and
+  // verify plan integrity there. Only ever called with server-built paths.
+  'mkdir',
+  'sha256sum',
 ]);
 
 export function assertSafeExecutable(name: string): void {
@@ -62,8 +66,13 @@ export function assertSafeCwd(cwd: string, allowedRoots: string[]): string {
   return resolved;
 }
 
+/** Matches ANSI escape sequences (colors, cursor moves) that tools print on TTY-like output. */
+// eslint-disable-next-line no-control-regex
+const ANSI_ESCAPES = /\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b[@-Z\\-_]/g;
+
 export function redactSecrets(text: string): string {
   return text
+    .replace(ANSI_ESCAPES, '')
     .replace(/(api[_-]?key|token|password|secret|aws_secret_access_key)\s*[:=]\s*\S+/gi, '$1=[redacted]')
     .replace(/AKIA[0-9A-Z]{16}/g, '[redacted-aws-key]')
     .replace(/-----BEGIN [A-Z ]+PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+PRIVATE KEY-----/g, '[redacted-key]')

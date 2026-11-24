@@ -86,6 +86,7 @@ blob-report/
 
 # ── Temporary files ───────────────────────────────────────────────────────────
 tmp/
+tmp-unslop/
 temp/
 *.tmp
 *.temp

@@ -26,7 +26,7 @@ import {
   Badge,
   Select,
 } from '../components/ui';
-import { PageBackground, SpiderEmblem } from '../components/shared';
+import { CodigoMark } from '../components/shared';
 import type { AIStatus, ContainerInfo } from '../types';
 
 const SUGGESTIONS = [
@@ -178,7 +178,6 @@ export function AICopilotPage() {
 
   return (
     <div className="page-shell relative">
-      <PageBackground showWeb={false} />
       <PageHeader
         title="AI Developer Copilot"
         description="Commit help, error explanation, Docker log analysis, and general assistance — keyed on the server only"
@@ -191,7 +190,7 @@ export function AICopilotPage() {
 
       {!configured && (
         <Alert variant="warning" title="AI provider not configured" className="relative z-10">
-          Set <code className="font-mono">AI_API_KEY</code> in <code className="font-mono">server/.env</code>.
+          Add <code className="font-mono">LLM_API_KEY</code> (or <code className="font-mono">NVIDIA_API_KEY</code>) to <code className="font-mono">server/.env</code> and restart the server
           Responses are never fabricated when the provider is unavailable.
           {aiStatus?.model ? (
             <>
@@ -218,7 +217,7 @@ export function AICopilotPage() {
       <div className="relative z-10 grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-4">
         <div className="card flex flex-col min-h-[520px]">
           <div className="flex items-center gap-2 mb-4 border-b border-cf-border pb-3">
-            <SpiderEmblem size={22} />
+            <CodigoMark size={22} tile={false} />
             <div className="text-sm font-semibold text-cf-text">Conversation</div>
             <Badge variant="violet">{mode}</Badge>
           </div>
@@ -255,7 +254,7 @@ export function AICopilotPage() {
                   }
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] uppercase tracking-wider text-cf-faint">
+                    <span className="text-xs text-cf-faint">
                       {m.role === 'user' ? 'You' : 'Copilot'}
                     </span>
                     <button
@@ -355,7 +354,7 @@ export function AICopilotPage() {
                   {m}
                 </button>
               ))}
-              <p className="text-[10px] text-cf-faint">Copy a message, then paste it in Git Studio.</p>
+              <p className="text-xs text-cf-faint">Copy a message, then paste it in Git Studio.</p>
             </div>
           )}
         </div>

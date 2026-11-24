@@ -24,7 +24,6 @@ import {
   Badge,
   Card,
 } from '../components/ui';
-import { PageBackground } from '../components/shared';
 import type { GitHubCommit, GitHubContributor } from '../types';
 
 export function ContributionExplorerPage() {
@@ -106,7 +105,6 @@ export function ContributionExplorerPage() {
 
   return (
     <div className="page-shell relative">
-      <PageBackground />
       <PageHeader
         title="Contribution Explorer"
         description="Inspect public GitHub activity from real API data — no invented calendars or stats"

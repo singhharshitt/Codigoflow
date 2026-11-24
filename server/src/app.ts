@@ -12,10 +12,9 @@ import {
   RATE_LIMIT_MAX,
   RATE_LIMIT_WINDOW_MS,
   REQUEST_JSON_LIMIT,
-  isAIConfigured,
   isGitHubConfigured,
-  getAIProviderLabel,
 } from './config';
+import { getAIStatus } from './integrations/ai';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 
@@ -51,7 +50,13 @@ export function createApp() {
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     }),
   );
-  app.use(compression());
+  // SSE (AI streaming) must not be buffered by compression.
+  app.use(
+    compression({
+      filter: (req, res) =>
+        String(req.headers.accept ?? '').includes('text/event-stream') ? false : compression.filter(req, res),
+    }),
+  );
   app.use(express.json({ limit: REQUEST_JSON_LIMIT }));
   app.use(express.urlencoded({ extended: true, limit: REQUEST_JSON_LIMIT }));
   app.use(requestLogger);
@@ -94,11 +99,16 @@ export function createApp() {
         version: APP_VERSION,
         timestamp: new Date().toISOString(),
         integrations: {
-          ai: {
-            configured: isAIConfigured(),
-            provider: getAIProviderLabel(),
-            // Never expose keys
-          },
+          ai: (() => {
+            const ai = getAIStatus();
+            // Provider ids/models only — never keys
+            return {
+              configured: ai.configured,
+              provider: ai.provider,
+              defaultProvider: ai.defaultProvider,
+              providers: ai.providers.map((p) => ({ id: p.id, label: p.label, model: p.model })),
+            };
+          })(),
           github: { configured: isGitHubConfigured() },
           docker: dockerStatus,
         },
